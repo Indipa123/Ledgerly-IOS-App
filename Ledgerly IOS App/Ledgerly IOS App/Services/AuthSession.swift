@@ -7,15 +7,20 @@ import UIKit
 @MainActor
 final class AuthSession: ObservableObject {
     @Published private(set) var user: FirebaseAuth.User?
+    @Published private(set) var isReady = false
     @Published private(set) var isBusy = false
     @Published var error: String?
 
     private var listener: AuthStateDidChangeListenerHandle?
 
     func start() {
-        guard listener == nil, FirebaseApp.app() != nil else { return }
+        guard listener == nil else { return }
+        guard FirebaseApp.app() != nil else { isReady = true; return }
         listener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
-            Task { @MainActor in self?.user = user }
+            Task { @MainActor in
+                self?.user = user
+                self?.isReady = true
+            }
         }
     }
 

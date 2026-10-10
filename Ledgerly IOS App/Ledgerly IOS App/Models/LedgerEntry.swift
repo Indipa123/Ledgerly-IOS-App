@@ -21,6 +21,7 @@ struct LedgerEntry: Identifiable {
     let note: String
     var categoryID: UUID? = nil
     var paymentMethodID: UUID? = nil
+    var location: LedgerLocation? = nil
 
     var displayTitle: String {
         let description = title.trimmingCharacters(in: .whitespacesAndNewlines)

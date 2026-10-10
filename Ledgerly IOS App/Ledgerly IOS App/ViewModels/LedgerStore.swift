@@ -7,16 +7,23 @@ final class LedgerStore: ObservableObject {
     @Published private(set) var budget: Decimal = 0
     @Published private(set) var categories: [LedgerCategory] = []
     @Published private(set) var paymentMethods: [LedgerPaymentMethod] = []
+    @Published private(set) var reminders: [LedgerReminder] = []
+    @Published private(set) var places: [LedgerPlace] = []
+    @Published private(set) var categoryMemory = CategoryMemoryIndex(entries: [])
     @Published var error: String?
     @Published private(set) var syncStatus = "On this device"
 
     private var repository: any LedgerRepository
     private var cloud: CloudLedgerSync?
     private var accountID: String?
+    private var excludedCategoryEntryIDs: Set<UUID> = []
+    let notifications = LedgerNotificationService()
 
     init(inMemory: Bool = false) {
         repository = CoreDataLedgerRepository(inMemory: inMemory)
+        if !inMemory { excludedCategoryEntryIDs = Self.loadLearningExclusions(accountID: nil) }
         reload()
+        Task { await notifications.scheduleExisting(reminders, owner: nil) }
     }
 
     init(repository: any LedgerRepository) {
@@ -26,19 +33,23 @@ final class LedgerStore: ObservableObject {
 
     func setAccount(_ uid: String?) {
         guard uid != accountID else { return }
+        notifications.cancelAll(reminders, owner: accountID)
         cloud?.stop()
         cloud = nil
         accountID = uid
+        excludedCategoryEntryIDs = Self.loadLearningExclusions(accountID: uid)
         guard let uid else {
             repository = CoreDataLedgerRepository()
             syncStatus = "On this device"
             reload()
+            Task { await notifications.scheduleExisting(reminders, owner: nil) }
             return
         }
 
         let accountRepository = CoreDataLedgerRepository(accountID: uid)
         repository = accountRepository
         reload()
+        Task { await notifications.scheduleExisting(reminders, owner: uid) }
         let service = CloudLedgerSync()
         cloud = service
         service.onEntry = { [weak self] entry in
@@ -70,6 +81,8 @@ final class LedgerStore: ObservableObject {
             let guest = CoreDataLedgerRepository()
             let entries = try guest.allEntriesForSync()
             let budget = try guest.currentBudgetForSync()
+            let places = try guest.fetchPlaces()
+            for place in places { try accountRepository.savePlace(place) }
             for entry in entries {
                 try accountRepository.applyRemote(entry)
             }
@@ -120,6 +133,50 @@ final class LedgerStore: ObservableObject {
         categories.filter { $0.kind == kind && !$0.isArchived }
     }
 
+    func suggestedCategory(for kind: EntryKind, title: String) -> CategoryMemorySuggestion? {
+        categoryMemory.suggestion(for: title, kind: kind,
+                                  activeCategories: activeCategories(for: kind))
+    }
+
+    var learnedCategoryGroups: [CategoryLearningGroup] {
+        CategoryMemoryIndex.groups(entries: entries, excludedEntryIDs: excludedCategoryEntryIDs)
+    }
+
+    func evaluateCategoryLearning() -> CategoryEvaluationReport? {
+        CategoryEvaluation.evaluate(entries: entries, activeCategories: categories,
+                                    excludedEntryIDs: excludedCategoryEntryIDs)
+    }
+
+    func forgetCategoryLearning(for group: CategoryLearningGroup) {
+        excludedCategoryEntryIDs.formUnion(group.entryIDs)
+        saveLearningExclusions()
+        refreshCategoryLearning()
+    }
+
+    func forgetAllCategoryLearning() {
+        excludedCategoryEntryIDs.formUnion(entries.map(\.id))
+        saveLearningExclusions()
+        refreshCategoryLearning()
+    }
+
+    private static func learningExclusionsKey(accountID: String?) -> String {
+        "ledgerly.categoryLearning.excluded.\(accountID ?? "guest")"
+    }
+
+    private static func loadLearningExclusions(accountID: String?) -> Set<UUID> {
+        Set((UserDefaults.standard.stringArray(forKey: learningExclusionsKey(accountID: accountID)) ?? [])
+            .compactMap(UUID.init(uuidString:)))
+    }
+
+    private func saveLearningExclusions() {
+        UserDefaults.standard.set(excludedCategoryEntryIDs.map(\.uuidString).sorted(),
+                                  forKey: Self.learningExclusionsKey(accountID: accountID))
+    }
+
+    private func refreshCategoryLearning() {
+        categoryMemory = CategoryMemoryIndex(entries: entries, excludedEntryIDs: excludedCategoryEntryIDs)
+    }
+
     var activePaymentMethods: [LedgerPaymentMethod] {
         paymentMethods.filter { !$0.isArchived }
     }
@@ -132,11 +189,17 @@ final class LedgerStore: ObservableObject {
             return false
         }
         do {
+            let previousSpent = spentSoFar
             try repository.upsert(entry)
             if let record = try (repository as? CoreDataLedgerRepository)?.syncEntry(id: entry.id) {
                 cloud?.upload(record)
             }
             reload()
+            let currentSpent = spentSoFar
+            let currentBudget = budget
+            let owner = accountID
+            Task { await notifications.checkBudgetCrossing(previous: previousSpent, current: currentSpent,
+                                                           budget: currentBudget, owner: owner) }
             return true
         } catch {
             self.error = error.localizedDescription
@@ -147,6 +210,7 @@ final class LedgerStore: ObservableObject {
     func delete(_ entry: LedgerEntry) {
         do {
             try repository.softDelete(id: entry.id)
+            ReceiptImageStore.delete(for: entry.id)
             if let record = try (repository as? CoreDataLedgerRepository)?.syncEntry(id: entry.id) {
                 cloud?.upload(record)
             }
@@ -156,16 +220,26 @@ final class LedgerStore: ObservableObject {
         }
     }
 
-    func setBudget(_ amount: Decimal) {
-        guard amount >= 0 else { return }
+    @discardableResult
+    func setBudget(_ amount: Decimal) -> Bool {
+        guard amount >= 0 else { return false }
         do {
+            let previousBudget = budget
             try repository.setCurrentBudget(amount)
             if let record = try (repository as? CoreDataLedgerRepository)?.currentBudgetForSync() {
                 cloud?.upload(record)
             }
             reload()
+            if amount < previousBudget || previousBudget == 0 {
+                let currentSpent = spentSoFar
+                let owner = accountID
+                Task { await notifications.checkBudgetCrossing(previous: 0, current: currentSpent,
+                                                               budget: amount, owner: owner) }
+            }
+            return true
         } catch {
             self.error = error.localizedDescription
+            return false
         }
     }
 
@@ -258,12 +332,70 @@ final class LedgerStore: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
 
+    @discardableResult
+    func saveReminder(_ reminder: LedgerReminder) async -> Bool {
+        guard reminder.isValid else { error = LedgerDataError.invalidReminder.localizedDescription; return false }
+        if !reminder.isPaused {
+            let allowed = await notifications.requestPermission()
+            guard allowed else {
+                error = "Allow notifications in iPhone Settings before saving an active reminder."
+                return false
+            }
+        }
+        do {
+            try repository.saveReminder(reminder)
+            reload()
+            do {
+                try await notifications.schedule(reminder, owner: accountID)
+            } catch {
+                self.error = "Reminder saved, but its notification could not be scheduled: \(error.localizedDescription)"
+            }
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    func setReminderPaused(_ reminder: LedgerReminder, paused: Bool) async {
+        var changed = reminder
+        changed.isPaused = paused
+        _ = await saveReminder(changed)
+    }
+
+    func deleteReminder(_ reminder: LedgerReminder) {
+        do {
+            try repository.deleteReminder(id: reminder.id)
+            notifications.cancel(reminder, owner: accountID)
+            reload()
+        } catch { self.error = error.localizedDescription }
+    }
+
+    @discardableResult
+    func savePlace(_ place: LedgerPlace) -> Bool {
+        do {
+            try repository.savePlace(place)
+            reload()
+            return true
+        } catch { self.error = error.localizedDescription; return false }
+    }
+
+    func deletePlace(_ place: LedgerPlace) {
+        do {
+            try repository.deletePlace(id: place.id)
+            reload()
+        } catch { self.error = error.localizedDescription }
+    }
+
     private func reload() {
         do {
             entries = try repository.fetchEntries()
             budget = try repository.fetchCurrentBudget()
             categories = try repository.fetchCategories()
+            refreshCategoryLearning()
             paymentMethods = try repository.fetchPaymentMethods()
+            reminders = try repository.fetchReminders()
+            places = try repository.fetchPlaces()
         } catch {
             self.error = error.localizedDescription
         }

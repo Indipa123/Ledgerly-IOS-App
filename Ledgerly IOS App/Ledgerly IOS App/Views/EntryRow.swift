@@ -3,23 +3,30 @@ import SwiftUI
 struct EntryRow: View {
     let entry: LedgerEntry
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: entry.kind == .expense ? "arrow.up.right" : "arrow.down.left")
-                .foregroundStyle(entry.kind == .expense ? Palette.coral : Palette.mint)
-                .frame(width: 38, height: 38)
-                .background((entry.kind == .expense ? Palette.coral : Palette.mint).opacity(0.12), in: Circle())
-            VStack(alignment: .leading) {
-                Text(entry.displayTitle).font(.subheadline.bold()).foregroundStyle(Palette.ink)
-                Text("\(entry.category) · \(entry.date.formatted(date: .abbreviated, time: .omitted))")
-                    .font(.caption).foregroundStyle(.secondary)
+        HStack(spacing: 13) {
+            LedgerIconTile(icon: .category(entry.category, kind: entry.kind), size: 48)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(entry.displayTitle)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(2)
+                Text(entry.category)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            Spacer()
-            Text("\(entry.kind == .expense ? "−" : "+") \(LKR.string(entry.amount))")
-                .font(.subheadline.bold().monospacedDigit())
-                .foregroundStyle(entry.kind == .expense ? Palette.coral : Palette.mint)
-                .lineLimit(1).minimumScaleFactor(0.7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .trailing, spacing: 5) {
+                Text("\(entry.kind == .expense ? "−" : "+")\(LKR.string(entry.amount))")
+                    .font(.subheadline.bold().monospacedDigit())
+                    .foregroundStyle(entry.kind == .expense ? Palette.coral : Palette.mint)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .frame(minHeight: 50)
+        .frame(minHeight: 58)
         .accessibilityElement(children: .combine)
     }
 }

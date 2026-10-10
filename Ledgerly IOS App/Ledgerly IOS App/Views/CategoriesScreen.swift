@@ -21,7 +21,8 @@ struct CategoriesScreen: View {
                     Button {
                         editingCategory = category
                     } label: {
-                        HStack {
+                        HStack(spacing: 12) {
+                            LedgerIconTile(icon: .category(category.name, kind: category.kind), size: 40)
                             Text(category.name)
                             Spacer()
                             if category.isSystem { Text("Built in").font(.caption).foregroundStyle(.secondary) }
@@ -36,6 +37,7 @@ struct CategoriesScreen: View {
                 Section("Archived") {
                     ForEach(categories.filter(\.isArchived)) { category in
                         HStack {
+                            LedgerIconTile(icon: .category(category.name, kind: category.kind), size: 40)
                             Text(category.name).foregroundStyle(.secondary)
                             Spacer()
                             Button("Restore") { store.restoreCategory(category) }

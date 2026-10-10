@@ -14,16 +14,25 @@ protocol LedgerRepository {
     func fetchPaymentMethods() throws -> [LedgerPaymentMethod]
     func savePaymentMethod(_ method: LedgerPaymentMethod) throws
     func archivePaymentMethod(id: UUID) throws
+    func fetchReminders() throws -> [LedgerReminder]
+    func saveReminder(_ reminder: LedgerReminder) throws
+    func deleteReminder(id: UUID) throws
+    func fetchPlaces() throws -> [LedgerPlace]
+    func savePlace(_ place: LedgerPlace) throws
+    func deletePlace(id: UUID) throws
 }
 
 enum LedgerDataError: LocalizedError {
-    case duplicateName, missingCategory, wrongCategoryKind, invalidLastFour
+    case duplicateName, missingCategory, wrongCategoryKind, invalidLastFour, invalidReminder, invalidPlace, invalidLocation
     var errorDescription: String? {
         switch self {
         case .duplicateName: "That name is already in use."
         case .missingCategory: "Choose an active category."
         case .wrongCategoryKind: "The category must match the transaction type."
         case .invalidLastFour: "Enter exactly four digits for the card label."
+        case .invalidReminder: "Enter a title, valid amount, and future date for a one-time reminder."
+        case .invalidPlace: "Enter a place name and valid coordinates."
+        case .invalidLocation: "Choose a valid location for this transaction."
         }
     }
 }
@@ -71,7 +80,8 @@ final class CoreDataLedgerRepository: LedgerRepository {
             return LedgerEntry(id: row.id, kind: kind, amount: row.amount.decimalValue,
                                title: row.title, category: row.categoryID.flatMap { categoryNames[$0] } ?? row.category,
                                date: row.date, note: row.note,
-                               categoryID: row.categoryID, paymentMethodID: row.paymentMethodID)
+                               categoryID: row.categoryID, paymentMethodID: row.paymentMethodID,
+                               location: Self.location(from: row))
         }
     }
 
@@ -83,6 +93,7 @@ final class CoreDataLedgerRepository: LedgerRepository {
     }
 
     func upsert(_ entry: LedgerEntry) throws {
+        if let location = entry.location, !location.isValid { throw LedgerDataError.invalidLocation }
         let context = container.viewContext
         if let categoryID = entry.categoryID {
             let categoryRequest = NSFetchRequest<CategoryRecord>(entityName: "CategoryRecord")
@@ -108,6 +119,7 @@ final class CoreDataLedgerRepository: LedgerRepository {
             row.note = entry.note
             row.categoryID = entry.categoryID
             row.paymentMethodID = entry.paymentMethodID
+            Self.setLocation(entry.location, on: row)
             row.updatedAt = .now
             row.deletedAt = nil
             try context.save()
@@ -175,6 +187,7 @@ final class CoreDataLedgerRepository: LedgerRepository {
             row.categoryID = category.id
         }
         row.paymentMethodID = nil
+        Self.setLocation(entry.location, on: row)
         try context.save()
     }
 
@@ -319,6 +332,104 @@ final class CoreDataLedgerRepository: LedgerRepository {
             row.isArchived = true
             try context.save()
         }
+    }
+
+    func fetchReminders() throws -> [LedgerReminder] {
+        let request = NSFetchRequest<ReminderRecord>(entityName: "ReminderRecord")
+        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+        return try container.viewContext.fetch(request).compactMap { row in
+            guard let frequency = ReminderFrequency(rawValue: row.frequency) else { return nil }
+            return LedgerReminder(id: row.id, title: row.title, amount: row.amount?.decimalValue,
+                                  frequency: frequency, dayOfMonth: Int(row.dayOfMonth),
+                                  weekday: Int(row.weekday), date: row.date,
+                                  hour: Int(row.hour), minute: Int(row.minute), isPaused: row.isPaused)
+        }
+    }
+
+    func saveReminder(_ reminder: LedgerReminder) throws {
+        guard reminder.isValid else { throw LedgerDataError.invalidReminder }
+        let context = container.viewContext
+        let request = NSFetchRequest<ReminderRecord>(entityName: "ReminderRecord")
+        request.fetchLimit = 1
+        request.predicate = NSPredicate(format: "id == %@", reminder.id as CVarArg)
+        do {
+            let row = try context.fetch(request).first
+                ?? (NSEntityDescription.insertNewObject(forEntityName: "ReminderRecord", into: context) as! ReminderRecord)
+            row.id = reminder.id
+            row.title = reminder.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            row.amount = reminder.amount.map(NSDecimalNumber.init(decimal:))
+            row.frequency = reminder.frequency.rawValue
+            row.dayOfMonth = Int16(reminder.dayOfMonth)
+            row.weekday = Int16(reminder.weekday)
+            row.date = reminder.date
+            row.hour = Int16(reminder.hour)
+            row.minute = Int16(reminder.minute)
+            row.isPaused = reminder.isPaused
+            try context.save()
+        } catch {
+            context.rollback()
+            throw error
+        }
+    }
+
+    func deleteReminder(id: UUID) throws {
+        let context = container.viewContext
+        let request = NSFetchRequest<ReminderRecord>(entityName: "ReminderRecord")
+        request.fetchLimit = 1
+        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        if let row = try context.fetch(request).first {
+            context.delete(row)
+            try context.save()
+        }
+    }
+
+    func fetchPlaces() throws -> [LedgerPlace] {
+        let request = NSFetchRequest<SavedPlaceRecord>(entityName: "SavedPlaceRecord")
+        request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
+        return try container.viewContext.fetch(request).map {
+            LedgerPlace(id: $0.id, name: $0.name, latitude: $0.latitude, longitude: $0.longitude)
+        }
+    }
+
+    func savePlace(_ place: LedgerPlace) throws {
+        guard place.isValid else { throw LedgerDataError.invalidPlace }
+        let context = container.viewContext
+        let request = NSFetchRequest<SavedPlaceRecord>(entityName: "SavedPlaceRecord")
+        request.fetchLimit = 1
+        request.predicate = NSPredicate(format: "id == %@", place.id as CVarArg)
+        do {
+            let row = try context.fetch(request).first ??
+                (NSEntityDescription.insertNewObject(forEntityName: "SavedPlaceRecord", into: context) as! SavedPlaceRecord)
+            row.id = place.id
+            row.name = place.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            row.latitude = place.latitude
+            row.longitude = place.longitude
+            try context.save()
+        } catch { context.rollback(); throw error }
+    }
+
+    func deletePlace(id: UUID) throws {
+        let context = container.viewContext
+        let request = NSFetchRequest<SavedPlaceRecord>(entityName: "SavedPlaceRecord")
+        request.fetchLimit = 1
+        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        if let row = try context.fetch(request).first { context.delete(row); try context.save() }
+    }
+
+    private static func location(from row: TransactionRecord) -> LedgerLocation? {
+        guard let name = row.locationName,
+              let latitude = row.locationLatitude?.doubleValue,
+              let longitude = row.locationLongitude?.doubleValue else { return nil }
+        let location = LedgerLocation(placeID: row.placeID, name: name,
+                                      latitude: latitude, longitude: longitude)
+        return location.isValid ? location : nil
+    }
+
+    private static func setLocation(_ location: LedgerLocation?, on row: TransactionRecord) {
+        row.placeID = location?.placeID
+        row.locationName = location?.name
+        row.locationLatitude = location.map { NSNumber(value: $0.latitude) }
+        row.locationLongitude = location.map { NSNumber(value: $0.longitude) }
     }
 
     private func seedDefaults() throws {

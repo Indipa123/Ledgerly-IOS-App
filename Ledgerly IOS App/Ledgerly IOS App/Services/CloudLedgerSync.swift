@@ -82,7 +82,11 @@ final class CloudLedgerSync {
          "title": entry.title, "category": entry.category, "date": Timestamp(date: entry.date),
          "note": entry.note, "createdAt": Timestamp(date: entry.createdAt),
          "updatedAt": Timestamp(date: entry.updatedAt),
-         "deletedAt": entry.deletedAt.map { Timestamp(date: $0) } ?? NSNull()]
+         "deletedAt": entry.deletedAt.map { Timestamp(date: $0) } ?? NSNull(),
+         "placeID": entry.location?.placeID?.uuidString as Any? ?? NSNull(),
+         "locationName": entry.location?.name as Any? ?? NSNull(),
+         "latitude": entry.location?.latitude as Any? ?? NSNull(),
+         "longitude": entry.location?.longitude as Any? ?? NSNull()]
     }
 
     private static func budgetData(_ budget: CloudBudget) -> [String: Any] {
@@ -108,9 +112,19 @@ final class CloudLedgerSync {
               let note = data["note"] as? String,
               let createdAt = (data["createdAt"] as? Timestamp)?.dateValue(),
               let updatedAt = (data["updatedAt"] as? Timestamp)?.dateValue() else { return nil }
+        let location: LedgerLocation?
+        if let name = data["locationName"] as? String,
+           let latitude = data["latitude"] as? Double,
+           let longitude = data["longitude"] as? Double {
+            let candidate = LedgerLocation(placeID: (data["placeID"] as? String).flatMap(UUID.init(uuidString:)),
+                                           name: name, latitude: latitude, longitude: longitude)
+            location = candidate.isValid ? candidate : nil
+        } else {
+            location = nil
+        }
         return CloudEntry(id: id, kind: kind, amount: amount, title: title, category: category,
                           date: date, note: note, createdAt: createdAt, updatedAt: updatedAt,
-                          deletedAt: (data["deletedAt"] as? Timestamp)?.dateValue())
+                          deletedAt: (data["deletedAt"] as? Timestamp)?.dateValue(), location: location)
     }
 
     private static func decodeBudget(_ snapshot: DocumentSnapshot) -> CloudBudget? {

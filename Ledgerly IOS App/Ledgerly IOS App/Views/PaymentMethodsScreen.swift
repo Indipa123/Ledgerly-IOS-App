@@ -85,10 +85,13 @@ struct PaymentMethodsScreen: View {
     }
 
     private func methodRow(_ method: LedgerPaymentMethod) -> some View {
-        VStack(alignment: .leading) {
-            Text(method.name)
-            Text(method.lastFour.map { "\(method.kind.label) · •••• \($0)" } ?? method.kind.label)
-                .font(.caption).foregroundStyle(.secondary)
+        HStack(spacing: 12) {
+            LedgerIconTile(icon: .payment(method.kind), size: 40)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(method.name)
+                Text(method.lastFour.map { "\(method.kind.label) · •••• \($0)" } ?? method.kind.label)
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
     }
 }

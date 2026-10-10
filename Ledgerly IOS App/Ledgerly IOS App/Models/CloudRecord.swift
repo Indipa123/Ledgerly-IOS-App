@@ -11,6 +11,7 @@ struct CloudEntry {
     let createdAt: Date
     let updatedAt: Date
     let deletedAt: Date?
+    let location: LedgerLocation?
 
     init(_ row: TransactionRecord) {
         id = row.id
@@ -23,10 +24,20 @@ struct CloudEntry {
         createdAt = row.createdAt
         updatedAt = row.updatedAt
         deletedAt = row.deletedAt
+        if let name = row.locationName,
+           let latitude = row.locationLatitude?.doubleValue,
+           let longitude = row.locationLongitude?.doubleValue {
+            let candidate = LedgerLocation(placeID: row.placeID, name: name,
+                                           latitude: latitude, longitude: longitude)
+            location = candidate.isValid ? candidate : nil
+        } else {
+            location = nil
+        }
     }
 
     init(id: UUID, kind: EntryKind, amount: Decimal, title: String, category: String,
-         date: Date, note: String, createdAt: Date, updatedAt: Date, deletedAt: Date?) {
+         date: Date, note: String, createdAt: Date, updatedAt: Date, deletedAt: Date?,
+         location: LedgerLocation? = nil) {
         self.id = id
         self.kind = kind
         self.amount = amount
@@ -37,6 +48,7 @@ struct CloudEntry {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
+        self.location = location
     }
 }
 

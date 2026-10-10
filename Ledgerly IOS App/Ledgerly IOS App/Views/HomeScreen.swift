@@ -22,12 +22,26 @@ struct HomeScreen: View {
         ScrollView {
             VStack(spacing: 14) {
                 hero
-                if store.budget == 0 {
-                    NavigationLink { BudgetScreen(store: store) } label: {
-                        Label("Set your monthly budget", systemImage: "target")
-                            .font(.headline).frame(maxWidth: .infinity, alignment: .leading).padding()
-                            .background(Palette.card, in: RoundedRectangle(cornerRadius: 18))
+                NavigationLink { BudgetScreen(store: store) } label: {
+                    HStack(spacing: 12) {
+                        LedgerIconTile(icon: .init(symbol: store.budget > 0 ? "pencil.line" : "target",
+                                                   color: Palette.cranberry), size: 38)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(store.budget > 0 ? "Edit monthly budget" : "Set monthly budget")
+                                .font(.headline)
+                            if store.budget > 0 {
+                                Text("Current plan: \(LKR.string(store.budget))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.secondary)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minHeight: 44)
+                    .padding()
+                    .background(Palette.card, in: RoundedRectangle(cornerRadius: 18))
                 }
                 addCard
                 recentCard
@@ -42,9 +56,8 @@ struct HomeScreen: View {
     private var hero: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
-                NavigationLink { SettingsScreen(store: store) } label: {
-                    Image(systemName: "person.crop.circle.fill")
-                        .font(.title2).foregroundStyle(.white)
+                NavigationLink { SettingsScreen(store: store, notifications: store.notifications) } label: {
+                    LedgerIconTile(icon: .init(symbol: "person.crop.circle.fill", color: .white), size: 38)
                 }
                 .accessibilityLabel("Profile and settings")
                 Text("Your money at a glance").font(.subheadline.bold()).foregroundStyle(.white)
@@ -78,10 +91,7 @@ struct HomeScreen: View {
                 }
             }
             HStack(spacing: 12) {
-                Image(systemName: "arrow.up.right")
-                    .font(.headline.bold()).foregroundStyle(Palette.mint)
-                    .frame(width: 42, height: 42)
-                    .background(Palette.mint.opacity(0.15), in: Circle())
+                LedgerIconTile(icon: .init(symbol: "calendar.badge.clock", color: Palette.mint), size: 44)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("YOUR DAILY PACE").font(.caption2.bold()).foregroundStyle(.secondary)
                     Text(store.budget > 0 ? LKR.string(max(0, left) / Decimal(daysLeft)) : "Add a budget")
@@ -117,18 +127,21 @@ struct HomeScreen: View {
 
     private var addCard: some View {
         VStack(alignment: .leading, spacing: 9) {
-            Text("ADD TRANSACTIONS").font(.caption2.bold()).foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                LedgerIconTile(icon: .init(symbol: "plus", color: Palette.cranberry), size: 36)
+                Text("ADD TRANSACTIONS").font(.caption2.bold()).foregroundStyle(.secondary)
+            }
             Text("Log expense or income").font(.headline).foregroundStyle(Palette.ink)
             Text("Capture money movement so budgets stay accurate")
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
                 Button { add(.expense) } label: {
-                    Label("Expenses", systemImage: "minus.circle.fill")
+                    Label("Expenses", systemImage: "arrow.up.right")
                         .frame(maxWidth: .infinity).frame(minHeight: 44)
                 }
                 .buttonStyle(.bordered).tint(Palette.coral)
                 Button { add(.income) } label: {
-                    Label("Income", systemImage: "plus.circle.fill")
+                    Label("Income", systemImage: "arrow.down.left")
                         .frame(maxWidth: .infinity).frame(minHeight: 44)
                 }
                 .buttonStyle(.bordered).tint(Palette.mint)
@@ -141,7 +154,10 @@ struct HomeScreen: View {
 
     private var recentCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Recent transactions").font(.headline).foregroundStyle(Palette.ink)
+            HStack(spacing: 10) {
+                LedgerIconTile(icon: .init(symbol: "clock.arrow.circlepath", color: Palette.iconPlum), size: 36)
+                Text("Recent transactions").font(.headline).foregroundStyle(Palette.ink)
+            }
             if store.entries.isEmpty {
                 ContentUnavailableView("No transactions yet", systemImage: "tray", description: Text("Add an expense or income to get started."))
             } else {

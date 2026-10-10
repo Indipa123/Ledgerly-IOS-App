@@ -12,13 +12,26 @@ let package = Package(
             exclude: [
                 "App", "Assets", "ViewModels", "Views",
                 "Services/AppLockService.swift", "Services/AuthSession.swift",
-                "Services/CloudLedgerSync.swift"
+                "Services/CloudLedgerSync.swift", "Services/LedgerNotificationService.swift",
+                "Services/CurrentLocationService.swift",
+                "Services/PlaceArrivalMonitor.swift",
+                "Services/PlaceAutocompleteService.swift",
+                "Services/ReceiptRecognitionService.swift", "Services/ReceiptImageStore.swift"
             ],
             sources: [
                 "Models/LedgerEntry.swift",
                 "Models/CloudRecord.swift",
                 "Models/LedgerCalculations.swift",
                 "Models/AppLockTiming.swift",
+                "Models/LedgerReminder.swift",
+                "Models/ReceiptSuggestions.swift",
+                "Models/InsightCalculations.swift",
+                "Models/LedgerPlace.swift",
+                "Models/CategoryMemory.swift",
+                "Models/CategoryEvaluation.swift",
+                "Models/PlaceSearchMatching.swift",
+                "Models/PlaceArrivalPolicy.swift",
+                "Models/PlaceVisit.swift",
                 "Services/CoreDataModel.swift",
                 "Services/LedgerRepository.swift"
             ]

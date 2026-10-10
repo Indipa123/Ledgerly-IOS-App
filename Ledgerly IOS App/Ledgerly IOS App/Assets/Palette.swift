@@ -4,6 +4,11 @@ import UIKit
 enum Palette {
     static let cranberry = Color(red: 0.77, green: 0.20, blue: 0.34)
     static let plum = Color(red: 0.39, green: 0.14, blue: 0.27)
+    static let iconPlum = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.88, green: 0.57, blue: 0.72, alpha: 1)
+            : UIColor(red: 0.39, green: 0.14, blue: 0.27, alpha: 1)
+    })
     static let ink = Color.primary
     static let cream = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark

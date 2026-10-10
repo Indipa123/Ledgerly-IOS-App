@@ -4,8 +4,10 @@ import FirebaseAuth
 
 struct SettingsScreen: View {
     @ObservedObject var store: LedgerStore
+    @ObservedObject var notifications: LedgerNotificationService
     @EnvironmentObject private var auth: AuthSession
     @EnvironmentObject private var lock: AppLockService
+    @Environment(\.openURL) private var openURL
     @AppStorage("appearance") private var appearance = 0
     var body: some View {
         Form {
@@ -22,8 +24,32 @@ struct SettingsScreen: View {
                 LabeledContent("Storage", value: store.syncStatus)
             }
             Section("Manage") {
-                NavigationLink("Categories") { CategoriesScreen(store: store) }
-                NavigationLink("Payment methods") { PaymentMethodsScreen(store: store) }
+                NavigationLink { LearnedCategoriesScreen(store: store) } label: {
+                    settingsRow("Learned categories", symbol: "sparkle.magnifyingglass", color: Palette.iconPlum)
+                }
+                NavigationLink { CategoriesScreen(store: store) } label: {
+                    settingsRow("Categories", symbol: "square.grid.2x2.fill", color: Palette.cranberry)
+                }
+                NavigationLink { PaymentMethodsScreen(store: store) } label: {
+                    settingsRow("Payment methods", symbol: "creditcard.fill", color: Palette.iconPlum)
+                }
+                NavigationLink { RemindersScreen(store: store) } label: {
+                    settingsRow("Reminders", symbol: "bell.fill", color: Palette.coral)
+                }
+            }
+            Section("Notifications") {
+                Toggle("Budget alerts", isOn: Binding(
+                    get: { notifications.budgetAlertsEnabled },
+                    set: { enabled in Task { await notifications.setBudgetAlertsEnabled(enabled) } }
+                ))
+                LabeledContent("Permission", value: notifications.permissionText)
+                if notifications.permissionText == "Denied in iPhone Settings" {
+                    Button("Open iPhone Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                    }
+                }
+                Text("Budget alerts appear once after spending passes 80% or 100% of this month's budget. Reminders are scheduled only after you allow notifications.")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
             Section("Appearance") {
                 Picker("Theme", selection: $appearance) {
@@ -67,5 +93,13 @@ struct SettingsScreen: View {
             }
         }
         .navigationTitle("Settings")
+        .task { await notifications.refreshPermission() }
+    }
+
+    private func settingsRow(_ title: String, symbol: String, color: Color) -> some View {
+        HStack(spacing: 12) {
+            LedgerIconTile(icon: .init(symbol: symbol, color: color), size: 38)
+            Text(title)
+        }
     }
 }

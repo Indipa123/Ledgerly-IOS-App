@@ -15,6 +15,10 @@ final class TransactionRecord: NSManagedObject {
     @NSManaged var deletedAt: Date?
     @NSManaged var categoryID: UUID?
     @NSManaged var paymentMethodID: UUID?
+    @NSManaged var placeID: UUID?
+    @NSManaged var locationName: String?
+    @NSManaged var locationLatitude: NSNumber?
+    @NSManaged var locationLongitude: NSNumber?
 }
 
 @objc(BudgetRecord)
@@ -46,6 +50,28 @@ final class PaymentMethodRecord: NSManagedObject {
     @NSManaged var sortIndex: Int16
 }
 
+@objc(ReminderRecord)
+final class ReminderRecord: NSManagedObject {
+    @NSManaged var id: UUID
+    @NSManaged var title: String
+    @NSManaged var amount: NSDecimalNumber?
+    @NSManaged var frequency: Int16
+    @NSManaged var dayOfMonth: Int16
+    @NSManaged var weekday: Int16
+    @NSManaged var date: Date
+    @NSManaged var hour: Int16
+    @NSManaged var minute: Int16
+    @NSManaged var isPaused: Bool
+}
+
+@objc(SavedPlaceRecord)
+final class SavedPlaceRecord: NSManagedObject {
+    @NSManaged var id: UUID
+    @NSManaged var name: String
+    @NSManaged var latitude: Double
+    @NSManaged var longitude: Double
+}
+
 
 enum CoreDataModel {
     static func make() -> NSManagedObjectModel {
@@ -66,7 +92,11 @@ enum CoreDataModel {
             field("note", .stringAttributeType), field("createdAt", .dateAttributeType),
             field("updatedAt", .dateAttributeType), field("deletedAt", .dateAttributeType, optional: true),
             field("categoryID", .UUIDAttributeType, optional: true),
-            field("paymentMethodID", .UUIDAttributeType, optional: true)
+            field("paymentMethodID", .UUIDAttributeType, optional: true),
+            field("placeID", .UUIDAttributeType, optional: true),
+            field("locationName", .stringAttributeType, optional: true),
+            field("locationLatitude", .doubleAttributeType, optional: true),
+            field("locationLongitude", .doubleAttributeType, optional: true)
         ]
         transaction.uniquenessConstraints = [["id"]]
         let budget = NSEntityDescription()
@@ -96,8 +126,26 @@ enum CoreDataModel {
             field("isArchived", .booleanAttributeType), field("sortIndex", .integer16AttributeType)
         ]
         paymentMethod.uniquenessConstraints = [["id"]]
+        let reminder = NSEntityDescription()
+        reminder.name = "ReminderRecord"
+        reminder.managedObjectClassName = NSStringFromClass(ReminderRecord.self)
+        reminder.properties = [
+            field("id", .UUIDAttributeType), field("title", .stringAttributeType),
+            field("amount", .decimalAttributeType, optional: true),
+            field("frequency", .integer16AttributeType),
+            field("dayOfMonth", .integer16AttributeType), field("weekday", .integer16AttributeType),
+            field("date", .dateAttributeType), field("hour", .integer16AttributeType),
+            field("minute", .integer16AttributeType), field("isPaused", .booleanAttributeType)
+        ]
+        reminder.uniquenessConstraints = [["id"]]
+        let place = NSEntityDescription()
+        place.name = "SavedPlaceRecord"
+        place.managedObjectClassName = NSStringFromClass(SavedPlaceRecord.self)
+        place.properties = [field("id", .UUIDAttributeType), field("name", .stringAttributeType),
+                            field("latitude", .doubleAttributeType), field("longitude", .doubleAttributeType)]
+        place.uniquenessConstraints = [["id"]]
         let model = NSManagedObjectModel()
-        model.entities = [transaction, budget, category, paymentMethod]
+        model.entities = [transaction, budget, category, paymentMethod, reminder, place]
         return model
     }
 }
