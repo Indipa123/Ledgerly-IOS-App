@@ -52,7 +52,7 @@ final class CurrentLocationService: NSObject, ObservableObject, CLLocationManage
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard hasPendingRequest else { return }
         guard let latest = locations.last(where: { $0.horizontalAccuracy >= 0 }) else {
-            fail("The phone could not determine a usable location. Try again or choose a point on the map.")
+            fail("This device could not determine a usable location. Try again or choose a point on the map.")
             return
         }
         hasPendingRequest = false
@@ -62,7 +62,7 @@ final class CurrentLocationService: NSObject, ObservableObject, CLLocationManage
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         guard hasPendingRequest else { return }
-        fail("The phone could not determine your location. Try again or choose a point on the map.")
+        fail("This device could not determine your location. Try again or choose a point on the map.")
     }
 
     private func fail(_ message: String) {

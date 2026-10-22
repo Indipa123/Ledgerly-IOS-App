@@ -2,7 +2,7 @@ import SwiftUI
 import VisionKit
 
 struct ReceiptCamera: UIViewControllerRepresentable {
-    let onImage: (Data) -> Void
+    let onImages: ([Data]) -> Void
     let onError: (String) -> Void
     let onCancel: () -> Void
 
@@ -22,9 +22,14 @@ struct ReceiptCamera: UIViewControllerRepresentable {
 
         func documentCameraViewController(_ controller: VNDocumentCameraViewController,
                                           didFinishWith scan: VNDocumentCameraScan) {
-            let data = scan.pageCount > 0 ? scan.imageOfPage(at: 0).jpegData(compressionQuality: 0.9) : nil
-            if let data { parent.onImage(data) }
-            else { parent.onError("No receipt image was captured.") }
+            guard scan.pageCount > 0, scan.pageCount <= ReceiptPageArchive.maximumPages else {
+                parent.onError("Scan between 1 and \(ReceiptPageArchive.maximumPages) pages for one receipt.")
+                return
+            }
+            do {
+                let pages = try (0..<scan.pageCount).map { try ReceiptImageStore.normalized(scan.imageOfPage(at: $0)) }
+                parent.onImages(pages)
+            } catch { parent.onError(error.localizedDescription) }
         }
 
         func documentCameraViewControllerDidCancel(_ controller: VNDocumentCameraViewController) {

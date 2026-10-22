@@ -12,10 +12,45 @@
 		A10000010000000000000003 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000020000000000000003 /* FirebaseFirestore */; };
 		A10000010000000000000004 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A10000020000000000000004 /* GoogleSignIn */; };
 		A10000010000000000000005 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = A10000020000000000000005 /* GoogleSignInSwift */; };
+		B40000010000000000000009 /* LedgerlyShoppingWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B40000010000000000000001 /* LedgerlyShoppingWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B4000001000000000000000A /* Ledgerly IOS App/Models/ShoppingActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000010000000000000002 /* Ledgerly IOS App/Models/ShoppingActivityAttributes.swift */; };
+		B40000010000000000000013 /* Ledgerly IOS App/Models/QuickAddShoppingItemIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000010000000000000012 /* Ledgerly IOS App/Models/QuickAddShoppingItemIntent.swift */; };
+		B40000010000000000000014 /* ShoppingTripActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000010000000000000010 /* ShoppingTripActivityWidget.swift */; };
+		B50000010000000000000001 /* Ledgerly IOS App/Models/BudgetWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000010000000000000002 /* Ledgerly IOS App/Models/BudgetWidgetSnapshot.swift */; };
+		B50000010000000000000003 /* MonthlyBudgetWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000010000000000000004 /* MonthlyBudgetWidget.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B4000001000000000000000E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9BA6372B306CEC6C00AF2CEF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B40000010000000000000004;
+			remoteInfo = LedgerlyShoppingWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B40000010000000000000008 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				B40000010000000000000009 /* LedgerlyShoppingWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		9BA63733306CEC6C00AF2CEF /* Ledgerly.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ledgerly.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B40000010000000000000001 /* LedgerlyShoppingWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LedgerlyShoppingWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B40000010000000000000002 /* Ledgerly IOS App/Models/ShoppingActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Ledgerly IOS App/Models/ShoppingActivityAttributes.swift"; sourceTree = SOURCE_ROOT; };
+		B40000010000000000000010 /* ShoppingTripActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShoppingTripActivityWidget.swift; sourceTree = "<group>"; };
+		B40000010000000000000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B40000010000000000000012 /* Ledgerly IOS App/Models/QuickAddShoppingItemIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Ledgerly IOS App/Models/QuickAddShoppingItemIntent.swift"; sourceTree = SOURCE_ROOT; };
+		B50000010000000000000002 /* Ledgerly IOS App/Models/BudgetWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Ledgerly IOS App/Models/BudgetWidgetSnapshot.swift"; sourceTree = SOURCE_ROOT; };
+		B50000010000000000000004 /* MonthlyBudgetWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyBudgetWidget.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -37,14 +72,31 @@
 				A10000010000000000000005 /* GoogleSignInSwift in Frameworks */,
 			);
 		};
+		B40000010000000000000006 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		9B4894F130833FE100879FC0 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				B40000010000000000000002 /* Ledgerly IOS App/Models/ShoppingActivityAttributes.swift */,
+				B40000010000000000000012 /* Ledgerly IOS App/Models/QuickAddShoppingItemIntent.swift */,
+				B50000010000000000000002 /* Ledgerly IOS App/Models/BudgetWidgetSnapshot.swift */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		9BA6372A306CEC6C00AF2CEF = {
 			isa = PBXGroup;
 			children = (
 				9BA63735306CEC6C00AF2CEF /* Ledgerly IOS App */,
+				B40000010000000000000003 /* Ledgerly Shopping Widget */,
 				9BA63734306CEC6C00AF2CEF /* Products */,
+				9B4894F130833FE100879FC0 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -52,8 +104,19 @@
 			isa = PBXGroup;
 			children = (
 				9BA63733306CEC6C00AF2CEF /* Ledgerly.app */,
+				B40000010000000000000001 /* LedgerlyShoppingWidget.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B40000010000000000000003 /* Ledgerly Shopping Widget */ = {
+			isa = PBXGroup;
+			children = (
+				B40000010000000000000010 /* ShoppingTripActivityWidget.swift */,
+				B50000010000000000000004 /* MonthlyBudgetWidget.swift */,
+				B40000010000000000000011 /* Info.plist */,
+			);
+			path = "Ledgerly Shopping Widget";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -66,8 +129,12 @@
 				9BA6372F306CEC6C00AF2CEF /* Sources */,
 				9BA63730306CEC6C00AF2CEF /* Frameworks */,
 				9BA63731306CEC6C00AF2CEF /* Resources */,
+				B40000010000000000000008 /* Embed App Extensions */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				B4000001000000000000000F /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				9BA63735306CEC6C00AF2CEF /* Ledgerly IOS App */,
@@ -84,6 +151,21 @@
 			productReference = 9BA63733306CEC6C00AF2CEF /* Ledgerly.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B40000010000000000000004 /* LedgerlyShoppingWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B4000001000000000000000D /* Build configuration list for PBXNativeTarget "LedgerlyShoppingWidget" */;
+			buildPhases = (
+				B40000010000000000000005 /* Sources */,
+				B40000010000000000000006 /* Frameworks */,
+				B40000010000000000000007 /* Resources */,
+			);
+			buildRules = (
+			);
+			name = LedgerlyShoppingWidget;
+			productName = LedgerlyShoppingWidget;
+			productReference = B40000010000000000000001 /* LedgerlyShoppingWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -95,6 +177,9 @@
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					9BA63732306CEC6C00AF2CEF = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					B40000010000000000000004 = {
 						CreatedOnToolsVersion = 27.0;
 					};
 				};
@@ -118,12 +203,18 @@
 			projectRoot = "";
 			targets = (
 				9BA63732306CEC6C00AF2CEF /* Ledgerly IOS App */,
+				B40000010000000000000004 /* LedgerlyShoppingWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		9BA63731306CEC6C00AF2CEF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		B40000010000000000000007 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -136,7 +227,25 @@
 			files = (
 			);
 		};
+		B40000010000000000000005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+				B40000010000000000000014 /* ShoppingTripActivityWidget.swift in Sources */,
+				B50000010000000000000001 /* Ledgerly IOS App/Models/BudgetWidgetSnapshot.swift in Sources */,
+				B50000010000000000000003 /* MonthlyBudgetWidget.swift in Sources */,
+				B4000001000000000000000A /* Ledgerly IOS App/Models/ShoppingActivityAttributes.swift in Sources */,
+				B40000010000000000000013 /* Ledgerly IOS App/Models/QuickAddShoppingItemIntent.swift in Sources */,
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B4000001000000000000000F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B40000010000000000000004 /* LedgerlyShoppingWidget */;
+			targetProxy = B4000001000000000000000E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		9BA6373C306CEC6D00AF2CEF /* Debug configuration for PBXProject "Ledgerly IOS App" */ = {
@@ -174,7 +283,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = RWJ3M96GTN;
+				DEVELOPMENT_TEAM = 34HL9WPR6H;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -242,7 +351,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = RWJ3M96GTN;
+				DEVELOPMENT_TEAM = 34HL9WPR6H;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -273,13 +382,20 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/Ledgerly.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = RWJ3M96GTN;
+				DEVELOPMENT_TEAM = 34HL9WPR6H;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Ledgerly;
 				INFOPLIST_KEY_CFBundleName = Ledgerly;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Scan a receipt so you can review its amount, merchant, and date before recording an expense.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlock Ledgerly to keep your transactions and budgets private.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "When you enable arrival reminders for saved places, Ledgerly uses location in the background to remind you to record an expense. Your location is not proof of a purchase.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Use your current location to place a pin on the map when you choose to save a place.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -308,13 +424,20 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/Ledgerly.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = RWJ3M96GTN;
+				DEVELOPMENT_TEAM = 34HL9WPR6H;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Ledgerly;
 				INFOPLIST_KEY_CFBundleName = Ledgerly;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Scan a receipt so you can review its amount, merchant, and date before recording an expense.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Unlock Ledgerly to keep your transactions and budgets private.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "When you enable arrival reminders for saved places, Ledgerly uses location in the background to remind you to record an expense. Your location is not proof of a purchase.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Use your current location to place a pin on the map when you choose to save a place.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -338,6 +461,64 @@
 			};
 			name = Release;
 		};
+		B4000001000000000000000B /* Debug configuration for PBXNativeTarget "LedgerlyShoppingWidget" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = "Ledgerly Shopping Widget/LedgerlyShoppingWidget.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 34HL9WPR6H;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Ledgerly Shopping Widget/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Ledgerly;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.indipa.Ledgerly-IOS-App.ShoppingWidget34HL9WPR6H";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG WIDGET_EXTENSION";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B4000001000000000000000C /* Release configuration for PBXNativeTarget "LedgerlyShoppingWidget" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = "Ledgerly Shopping Widget/LedgerlyShoppingWidget.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 34HL9WPR6H;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Ledgerly Shopping Widget/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Ledgerly;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.indipa.Ledgerly-IOS-App.ShoppingWidget34HL9WPR6H";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = WIDGET_EXTENSION;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -354,6 +535,14 @@
 			buildConfigurations = (
 				9BA6373F306CEC6D00AF2CEF /* Debug configuration for PBXNativeTarget "Ledgerly IOS App" */,
 				9BA63740306CEC6D00AF2CEF /* Release configuration for PBXNativeTarget "Ledgerly IOS App" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		B4000001000000000000000D /* Build configuration list for PBXNativeTarget "LedgerlyShoppingWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B4000001000000000000000B /* Debug configuration for PBXNativeTarget "LedgerlyShoppingWidget" */,
+				B4000001000000000000000C /* Release configuration for PBXNativeTarget "LedgerlyShoppingWidget" */,
 			);
 			defaultConfigurationName = Release;
 		};

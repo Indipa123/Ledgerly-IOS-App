@@ -48,6 +48,32 @@ struct LedgerRepositoryTests {
         }
     }
 
+    @Test func undoRestoresDeletedEntryWithoutChangingItsArchivedCategory() throws {
+        let repository = CoreDataLedgerRepository(inMemory: true)
+        let category = try #require(repository.fetchCategories().first {
+            $0.name == "Groceries" && $0.kind == .expense
+        })
+        let entry = LedgerEntry(id: UUID(), kind: .expense, amount: 430,
+                                title: "Keells", category: category.name, date: .now,
+                                note: "Receipt", categoryID: category.id)
+        try repository.upsert(entry)
+        try repository.archiveCategory(id: category.id)
+        try repository.softDelete(id: entry.id)
+        let tombstone = try #require(try repository.syncEntry(id: entry.id))
+        #expect(try repository.fetchEntries().isEmpty)
+
+        try repository.restoreDeleted(id: entry.id)
+        let restored = try #require(repository.fetchEntries().first)
+        #expect(restored.id == entry.id)
+        #expect(restored.categoryID == category.id)
+        #expect(restored.note == "Receipt")
+        let restoredRecord = try #require(try repository.syncEntry(id: entry.id))
+        #expect(restoredRecord.updatedAt > tombstone.updatedAt)
+
+        try repository.applyRemote(tombstone)
+        #expect(try repository.fetchEntries().count == 1)
+    }
+
     @Test func duplicateCategoryNamesAreCaseInsensitive() throws {
         let repository = CoreDataLedgerRepository(inMemory: true)
         let category = LedgerCategory(
@@ -70,6 +96,7 @@ struct LedgerRepositoryTests {
         category.name = "Food shopping"
         try repository.saveCategory(category)
         #expect(try repository.fetchEntries().first?.category == "Food shopping")
+        #expect(try repository.syncEntry(id: entry.id)?.category == "Food shopping")
     }
 
     @Test func paymentMethodAcceptsOnlyOptionalLastFour() throws {

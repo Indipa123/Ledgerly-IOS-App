@@ -1,6 +1,6 @@
 import Foundation
 
-enum EntryKind: Int16, CaseIterable, Identifiable {
+enum EntryKind: Int16, CaseIterable, Identifiable, Codable {
     case expense = 0, income = 1
     var id: Int16 { rawValue }
     var label: String { self == .expense ? "Expense" : "Income" }
@@ -22,6 +22,10 @@ struct LedgerEntry: Identifiable {
     var categoryID: UUID? = nil
     var paymentMethodID: UUID? = nil
     var location: LedgerLocation? = nil
+    var eventID: UUID? = nil
+    var budgetOverrideReason: String? = nil
+    var categorySuggestion: CategorySuggestionRecord? = nil
+    var categoryChanges: [CategoryChangeRecord] = []
 
     var displayTitle: String {
         let description = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -29,7 +33,7 @@ struct LedgerEntry: Identifiable {
     }
 }
 
-struct LedgerCategory: Identifiable, Hashable {
+struct LedgerCategory: Identifiable, Hashable, Codable {
     let id: UUID
     var name: String
     let kind: EntryKind
@@ -38,7 +42,7 @@ struct LedgerCategory: Identifiable, Hashable {
     var sortIndex: Int16
 }
 
-enum PaymentKind: Int16, CaseIterable, Identifiable {
+enum PaymentKind: Int16, CaseIterable, Identifiable, Codable {
     case cash = 0, debitCard, creditCard, mobileWallet, bankTransfer
     var id: Int16 { rawValue }
     var label: String {
@@ -52,7 +56,7 @@ enum PaymentKind: Int16, CaseIterable, Identifiable {
     }
 }
 
-struct LedgerPaymentMethod: Identifiable, Hashable {
+struct LedgerPaymentMethod: Identifiable, Hashable, Codable {
     let id: UUID
     var name: String
     var kind: PaymentKind

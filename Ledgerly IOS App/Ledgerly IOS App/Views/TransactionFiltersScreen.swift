@@ -51,6 +51,14 @@ struct TransactionFiltersScreen: View {
                         }
                     }
                 }
+                Section("Event") {
+                    Picker("Event budget", selection: $query.eventID) {
+                        Text("All events").tag(Optional<UUID>.none)
+                        ForEach(store.lifeEvents) { event in
+                            Text(event.name).tag(Optional(event.id))
+                        }
+                    }
+                }
                 Section("Amount") {
                     TextField("Minimum in LKR", text: $minimumAmount)
                         .keyboardType(.decimalPad)

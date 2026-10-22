@@ -3,6 +3,7 @@ import MapKit
 import Combine
 
 struct PlaceEditor: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var store: LedgerStore
     @StateObject private var currentLocation = CurrentLocationService()
@@ -137,7 +138,7 @@ struct PlaceEditor: View {
                         })
                         .onMapCameraChange { context in visibleRegion = context.region }
                     }
-                    .frame(height: 300)
+                    .frame(height: horizontalSizeClass == .regular ? 420 : 300)
                     .id("selectedPlaceMap")
                     .listRowInsets(EdgeInsets())
                     LabeledContent("Latitude") {

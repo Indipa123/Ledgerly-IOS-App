@@ -12,8 +12,32 @@ struct PlaceVisit: Identifiable, Codable, Equatable {
     var isOpen: Bool { exitedAt == nil }
 }
 
+struct PlaceVisitSpendingSummary: Equatable {
+    let count: Int
+    let total: Decimal
+    let latestEntryID: UUID
+}
+
 enum PlaceVisitPolicy {
     static let abandonedAfter: TimeInterval = 12 * 60 * 60
+
+    static func spendingSummary(for visit: PlaceVisit,
+                                entries: [LedgerEntry]) -> PlaceVisitSpendingSummary? {
+        guard let exitedAt = visit.exitedAt, !visit.isAbandoned else { return nil }
+        let recorded = entries.filter { entry in
+            entry.kind == .expense && entry.location?.placeID == visit.placeID &&
+                entry.date >= visit.enteredAt && entry.date <= exitedAt
+        }
+        guard let latest = recorded.max(by: {
+            if $0.date != $1.date { return $0.date < $1.date }
+            return $0.id.uuidString < $1.id.uuidString
+        }) else { return nil }
+        return PlaceVisitSpendingSummary(
+            count: recorded.count,
+            total: recorded.reduce(Decimal.zero) { $0 + $1.amount },
+            latestEntryID: latest.id
+        )
+    }
 
     static func shouldCreateVisit(openVisit: PlaceVisit?, at now: Date) -> Bool {
         guard let openVisit else { return true }

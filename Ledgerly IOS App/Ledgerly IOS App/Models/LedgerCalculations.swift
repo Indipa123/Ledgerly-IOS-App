@@ -66,6 +66,7 @@ struct TransactionQuery {
     var endDate: Date?
     var categoryID: UUID?
     var paymentMethodID: UUID?
+    var eventID: UUID?
     var minimumAmount: Decimal?
     var maximumAmount: Decimal?
     var sort: TransactionSort = .newest
@@ -79,6 +80,7 @@ struct TransactionQuery {
             if let range, !range.contains(entry.date) { return false }
             if let categoryID, entry.categoryID != categoryID { return false }
             if let paymentMethodID, entry.paymentMethodID != paymentMethodID { return false }
+            if let eventID, entry.eventID != eventID { return false }
             if let minimumAmount, entry.amount < minimumAmount { return false }
             if let maximumAmount, entry.amount > maximumAmount { return false }
             if !query.isEmpty &&

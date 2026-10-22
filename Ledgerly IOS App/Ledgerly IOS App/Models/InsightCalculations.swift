@@ -23,19 +23,42 @@ struct InsightDay: Identifiable {
 enum InsightCalculations {
     static func categoryTotals(_ entries: [LedgerEntry], asOf: Date = .now,
                                calendar: Calendar = .current) -> [InsightAmount] {
+        totals(currentMonthExpenses(entries, asOf: asOf, calendar: calendar), name: { $0.category })
+    }
+
+    static func categoryEntries(_ entries: [LedgerEntry], category: String, asOf: Date = .now,
+                                calendar: Calendar = .current) -> [LedgerEntry] {
+        currentMonthExpenses(entries, asOf: asOf, calendar: calendar)
+            .filter { $0.category == category }
+            .sorted { $0.date > $1.date }
+    }
+
+    private static func currentMonthExpenses(_ entries: [LedgerEntry], asOf: Date,
+                                             calendar: Calendar) -> [LedgerEntry] {
         guard let month = calendar.dateInterval(of: .month, for: asOf) else { return [] }
-        return totals(entries.filter {
+        return entries.filter {
             $0.kind == .expense && month.contains($0.date) && $0.date <= asOf
-        }, name: { $0.category })
+        }
     }
 
     static func paymentTotals(_ entries: [LedgerEntry], methods: [LedgerPaymentMethod],
                               asOf: Date = .now, calendar: Calendar = .current) -> [InsightAmount] {
-        guard let month = calendar.dateInterval(of: .month, for: asOf) else { return [] }
         let names = Dictionary(uniqueKeysWithValues: methods.map { ($0.id, $0.name) })
-        return totals(entries.filter {
-            $0.kind == .expense && month.contains($0.date) && $0.date <= asOf
-        }, name: { $0.paymentMethodID.flatMap { names[$0] } ?? "Unspecified" })
+        return totals(currentMonthExpenses(entries, asOf: asOf, calendar: calendar),
+                      name: { paymentName(for: $0, names: names) })
+    }
+
+    static func paymentEntries(_ entries: [LedgerEntry], methods: [LedgerPaymentMethod],
+                               name: String, cardsOnly: Bool = false, asOf: Date = .now,
+                               calendar: Calendar = .current) -> [LedgerEntry] {
+        let names = Dictionary(uniqueKeysWithValues: methods.map { ($0.id, $0.name) })
+        let cardIDs = Set(methods.filter { $0.kind == .debitCard || $0.kind == .creditCard }.map(\.id))
+        return currentMonthExpenses(entries, asOf: asOf, calendar: calendar)
+            .filter { entry in
+                (!cardsOnly || entry.paymentMethodID.map(cardIDs.contains) == true) &&
+                paymentName(for: entry, names: names) == name
+            }
+            .sorted { $0.date > $1.date }
     }
 
     static func cardTotals(_ entries: [LedgerEntry], methods: [LedgerPaymentMethod],
@@ -63,19 +86,34 @@ enum InsightCalculations {
                               asOf: Date = .now, calendar: Calendar = .current) -> [InsightDay] {
         guard days > 0 else { return [] }
         let today = calendar.startOfDay(for: asOf)
-        return (0..<days).reversed().compactMap { offset in
-            guard let start = calendar.date(byAdding: .day, value: -offset, to: today),
-                  let end = calendar.date(byAdding: .day, value: 1, to: start) else { return nil }
-            let amount = entries.filter {
-                $0.kind == .expense && $0.date >= start && $0.date < end && $0.date <= asOf
-            }.reduce(Decimal.zero) { $0 + $1.amount }
-            return InsightDay(date: start, expense: amount)
+        let starts = (0..<days).reversed().compactMap {
+            calendar.date(byAdding: .day, value: -$0, to: today)
         }
+        guard let first = starts.first,
+              let end = calendar.date(byAdding: .day, value: 1, to: today) else { return [] }
+        var amounts = Array(repeating: Decimal.zero, count: starts.count)
+        // One ledger scan. Calendar-derived boundaries preserve local/DST days;
+        // binary search assigns an entry without scanning the ledger for every day.
+        for entry in entries where entry.kind == .expense && entry.date >= first &&
+            entry.date < end && entry.date <= asOf {
+            var lower = 0, upper = starts.count
+            while lower < upper {
+                let middle = (lower + upper) / 2
+                if starts[middle] <= entry.date { lower = middle + 1 }
+                else { upper = middle }
+            }
+            if lower > 0 { amounts[lower - 1] += entry.amount }
+        }
+        return starts.indices.map { InsightDay(date: starts[$0], expense: amounts[$0]) }
     }
 
     private static func totals(_ entries: [LedgerEntry], name: (LedgerEntry) -> String) -> [InsightAmount] {
         Dictionary(grouping: entries, by: name)
             .map { InsightAmount(name: $0.key, amount: $0.value.reduce(0) { $0 + $1.amount }) }
             .sorted { $0.amount == $1.amount ? $0.name < $1.name : $0.amount > $1.amount }
+    }
+
+    private static func paymentName(for entry: LedgerEntry, names: [UUID: String]) -> String {
+        entry.paymentMethodID.flatMap { names[$0] } ?? "Unspecified"
     }
 }

@@ -12,6 +12,10 @@ struct CloudEntry {
     let updatedAt: Date
     let deletedAt: Date?
     let location: LedgerLocation?
+    let eventID: UUID?
+    let budgetOverrideReason: String?
+    var paymentMethodID: UUID? = nil
+    var categoryID: UUID? = nil
 
     init(_ row: TransactionRecord) {
         id = row.id
@@ -24,6 +28,10 @@ struct CloudEntry {
         createdAt = row.createdAt
         updatedAt = row.updatedAt
         deletedAt = row.deletedAt
+        eventID = row.eventID
+        budgetOverrideReason = row.budgetOverrideReason
+        paymentMethodID = row.paymentMethodID
+        categoryID = row.categoryID
         if let name = row.locationName,
            let latitude = row.locationLatitude?.doubleValue,
            let longitude = row.locationLongitude?.doubleValue {
@@ -37,7 +45,8 @@ struct CloudEntry {
 
     init(id: UUID, kind: EntryKind, amount: Decimal, title: String, category: String,
          date: Date, note: String, createdAt: Date, updatedAt: Date, deletedAt: Date?,
-         location: LedgerLocation? = nil) {
+         location: LedgerLocation? = nil, eventID: UUID? = nil,
+         budgetOverrideReason: String? = nil) {
         self.id = id
         self.kind = kind
         self.amount = amount
@@ -49,6 +58,8 @@ struct CloudEntry {
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
         self.location = location
+        self.eventID = eventID
+        self.budgetOverrideReason = budgetOverrideReason
     }
 }
 

@@ -23,17 +23,13 @@ struct AppLockScreen: View {
                         .foregroundStyle(Palette.coral)
                         .multilineTextAlignment(.center)
                 }
-                Button(lock.isAuthenticating ? "Unlocking…" : "Try again") {
+                Button(lock.isAuthenticating ? "Unlocking…" : lock.isLocked ? "Unlock" : "Opening…") {
                     lock.authenticate()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Palette.cranberry)
-                .disabled(lock.isAuthenticating)
+                .disabled(lock.isAuthenticating || !lock.isLocked)
                 .padding(.top, 20)
-                Text("You can choose Use Passcode in the system prompt.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
             }
             .padding(32)
         }

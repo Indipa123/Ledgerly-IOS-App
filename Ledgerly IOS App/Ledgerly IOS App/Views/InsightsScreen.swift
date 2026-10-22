@@ -2,6 +2,7 @@ import SwiftUI
 import Charts
 
 struct InsightsScreen: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject var store: LedgerStore
 
     private var categories: [InsightAmount] { InsightCalculations.categoryTotals(store.entries) }
@@ -26,15 +27,49 @@ struct InsightsScreen: View {
                 Text("Your money, clearly").font(.title2.bold())
                 Text("Spending through today. Future transactions are left out of these charts.")
                     .font(.footnote).foregroundStyle(.secondary)
-                categorySection
-                monthlySection
-                dailySection
-                paymentSection
+                if dynamicTypeSize.isAccessibilitySize {
+                    stackedSections
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .top, spacing: 18) {
+                            VStack(spacing: 18) {
+                                categorySection
+                                monthlySection
+                            }
+                            .frame(maxWidth: .infinity)
+                            VStack(spacing: 18) {
+                                dailySection
+                                paymentSection
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .frame(minWidth: 860)
+                        stackedSections
+                    }
+                }
             }
+            .frame(maxWidth: 1120)
+            .frame(maxWidth: .infinity)
             .padding(18)
         }
         .background(Palette.cream.ignoresSafeArea())
         .navigationTitle("Insights")
+        .toolbar {
+            NavigationLink {
+                ReportScreen(store: store)
+            } label: {
+                Label("Report", systemImage: "doc.text")
+            }
+        }
+    }
+
+    private var stackedSections: some View {
+        VStack(spacing: 18) {
+            categorySection
+            monthlySection
+            dailySection
+            paymentSection
+        }
     }
 
     private var categorySection: some View {
@@ -50,8 +85,14 @@ struct InsightsScreen: View {
                 .frame(height: 245)
                 .accessibilityHidden(true)
                 ForEach(categories) { item in
-                    moneyRow(item.name, amount: item.amount,
-                             icon: .category(item.name, kind: .expense))
+                    NavigationLink {
+                        CategoryInsightDetail(store: store, categoryName: item.name)
+                    } label: {
+                        drilldownRow(item.name, amount: item.amount,
+                                     icon: .category(item.name, kind: .expense))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Shows this month's expenses in \(item.name)")
                 }
             }
         }
@@ -132,16 +173,28 @@ struct InsightsScreen: View {
                 .accessibilityHidden(true)
                 ForEach(payments) { item in
                     let method = store.paymentMethods.first { $0.name == item.name }
-                    moneyRow(item.name, amount: item.amount,
-                             icon: method.map { .payment($0.kind) } ??
-                                .init(symbol: "creditcard.fill", color: Palette.iconPlum))
+                    NavigationLink {
+                        PaymentInsightDetail(store: store, paymentName: item.name, cardsOnly: false)
+                    } label: {
+                        drilldownRow(item.name, amount: item.amount,
+                                     icon: method.map { .payment($0.kind) } ??
+                                        .init(symbol: "creditcard.fill", color: Palette.iconPlum))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Shows this month's expenses paid with \(item.name)")
                 }
                 if !cards.isEmpty {
                     Divider()
                     Text("Card spending").font(.subheadline.bold())
                     ForEach(cards) { item in
-                        moneyRow(item.name, amount: item.amount,
-                                 icon: .init(symbol: "creditcard.fill", color: Palette.iconPlum))
+                        NavigationLink {
+                            PaymentInsightDetail(store: store, paymentName: item.name, cardsOnly: true)
+                        } label: {
+                            drilldownRow(item.name, amount: item.amount,
+                                         icon: .init(symbol: "creditcard.fill", color: Palette.iconPlum))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Shows this month's card expenses for \(item.name)")
                     }
                 }
             }
@@ -167,15 +220,38 @@ struct InsightsScreen: View {
 
     private func moneyRow(_ title: String, amount: Decimal,
                           icon: LedgerIconDescriptor) -> some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .top, spacing: 10) {
             LedgerIconTile(icon: icon, size: 34)
-            Text(title).font(.subheadline).lineLimit(1)
-            Spacer(minLength: 8)
-            Text(LKR.string(amount))
-                .font(.subheadline.bold().monospacedDigit())
-                .lineLimit(1).minimumScaleFactor(0.75)
+                .accessibilityHidden(true)
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                : AnyLayout(HStackLayout(alignment: .top, spacing: 8))
+            layout {
+                Text(title).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
+                Text(LKR.string(amount))
+                    .font(.subheadline.bold().monospacedDigit())
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.75)
+                    .layoutPriority(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-            .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(LKR.string(amount))
+    }
+
+    private func drilldownRow(_ title: String, amount: Decimal,
+                              icon: LedgerIconDescriptor) -> some View {
+        HStack(spacing: 8) {
+            moneyRow(title, amount: amount, icon: icon)
+            Image(systemName: "chevron.right")
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+        }
+        .frame(minHeight: 44)
     }
 
     private func empty(_ title: String, symbol: String) -> some View {
@@ -186,5 +262,119 @@ struct InsightsScreen: View {
 
     private func double(_ amount: Decimal) -> Double {
         NSDecimalNumber(decimal: amount).doubleValue
+    }
+}
+
+private struct CategoryInsightDetail: View {
+    @ObservedObject var store: LedgerStore
+    let categoryName: String
+
+    private var transactions: [LedgerEntry] {
+        InsightCalculations.categoryEntries(store.entries, category: categoryName)
+    }
+
+    private var total: Decimal {
+        transactions.reduce(0) { $0 + $1.amount }
+    }
+
+    private var limit: CategoryBudget? {
+        let key = CategoryBudget.key(monthKey: CategoryBudget.monthKey(for: .now),
+                                     categoryName: categoryName)
+        return store.categoryBudgets.first { $0.id == key }
+    }
+
+    var body: some View {
+        List {
+            Section("This month") {
+                LabeledContent("Spent", value: LKR.string(total))
+                LabeledContent("Transactions", value: transactions.count.formatted())
+                if let limit, limit.amount > 0 {
+                    LabeledContent("Category limit", value: LKR.string(limit.amount))
+                    let remaining = limit.amount - total
+                    let usage = NSDecimalNumber(decimal: total / limit.amount).doubleValue
+                    LabeledContent(remaining < 0 ? "Over limit" : "Remaining",
+                                   value: LKR.string(abs(remaining)))
+                    ProgressView(value: min(1, usage))
+                        .tint(remaining < 0 ? Palette.cranberry : Palette.iconPlum)
+                        .accessibilityLabel("Category limit used")
+                        .accessibilityValue("\((usage * 100).formatted(.number.precision(.fractionLength(0)))) percent")
+                } else {
+                    LabeledContent("Category limit", value: "None set")
+                }
+            }
+            Section("Expenses") {
+                if transactions.isEmpty {
+                    ContentUnavailableView("No expenses this month", systemImage: "tray",
+                                           description: Text("Expenses you add in this category will appear here."))
+                } else {
+                    ForEach(transactions) { entry in
+                        NavigationLink {
+                            EntryDetail(store: store, entry: entry)
+                        } label: {
+                            EntryRow(entry: entry)
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle(categoryName)
+    }
+}
+
+private struct PaymentInsightDetail: View {
+    @ObservedObject var store: LedgerStore
+    let paymentName: String
+    let cardsOnly: Bool
+
+    private var transactions: [LedgerEntry] {
+        InsightCalculations.paymentEntries(store.entries, methods: store.paymentMethods,
+                                           name: paymentName, cardsOnly: cardsOnly)
+    }
+
+    private var method: LedgerPaymentMethod? {
+        store.paymentMethods.first {
+            $0.name == paymentName &&
+            (!cardsOnly || $0.kind == .debitCard || $0.kind == .creditCard)
+        }
+    }
+
+    private var includesMissingMethod: Bool {
+        let knownIDs = Set(store.paymentMethods.map(\.id))
+        return transactions.contains { $0.paymentMethodID.map { !knownIDs.contains($0) } ?? true }
+    }
+
+    var body: some View {
+        List {
+            Section("This month") {
+                LabeledContent("Spent", value: LKR.string(transactions.reduce(0) { $0 + $1.amount }))
+                LabeledContent("Transactions", value: transactions.count.formatted())
+                if let method {
+                    LabeledContent("Type", value: method.kind.label)
+                    if let lastFour = method.lastFour {
+                        LabeledContent("Card ending", value: lastFour)
+                    }
+                }
+                if includesMissingMethod {
+                    Text("Includes expenses with no available payment method.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Section("Expenses") {
+                if transactions.isEmpty {
+                    ContentUnavailableView("No expenses this month", systemImage: "tray",
+                                           description: Text("Expenses for this payment method will appear here."))
+                } else {
+                    ForEach(transactions) { entry in
+                        NavigationLink {
+                            EntryDetail(store: store, entry: entry)
+                        } label: {
+                            EntryRow(entry: entry)
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle(paymentName)
     }
 }

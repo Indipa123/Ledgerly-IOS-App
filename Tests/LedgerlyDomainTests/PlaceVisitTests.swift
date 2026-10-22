@@ -3,6 +3,64 @@ import Testing
 @testable import LedgerlyDomain
 
 struct PlaceVisitTests {
+    @Test func repeatedInsideChecksKeepOneVisitAndAnOutsideCheckAllowsReentry() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let place = LedgerPlace(id: UUID(), name: "Shop", latitude: 7, longitude: 80)
+        var visits: [PlaceVisit] = []
+        // Initial inside-state and the boundary callback can both report the same arrival.
+        for seconds in [0.0, 1.0, 60.0] {
+            let at = now.addingTimeInterval(seconds)
+            let open = visits.first { $0.placeID == place.id && $0.isOpen }
+            if PlaceVisitPolicy.shouldCreateVisit(openVisit: open, at: at) {
+                visits.append(.init(id: UUID(), placeID: place.id, placeName: place.name, enteredAt: at))
+            }
+        }
+        #expect(visits.count == 1)
+        let outside = PlaceVisitPolicy.closed(visits[0], at: now.addingTimeInterval(120), reconciled: true)
+        #expect(outside.isReconciled)
+        #expect(PlaceVisitPolicy.spendingSummary(for: outside, entries: []) == nil)
+        visits[0] = outside
+        #expect(PlaceVisitPolicy.shouldCreateVisit(openVisit: visits.first { $0.isOpen },
+                                                  at: now.addingTimeInterval(180)))
+    }
+
+    @Test func departureSummaryIncludesOnlyExpensesRecordedAtThatPlaceDuringVisit() throws {
+        let placeID = UUID()
+        let otherPlaceID = UUID()
+        let arrival = Date(timeIntervalSince1970: 1_000_000)
+        let departure = arrival.addingTimeInterval(3_600)
+        let visit = PlaceVisit(id: UUID(), placeID: placeID, placeName: "Shop",
+                               enteredAt: arrival, exitedAt: departure)
+        func entry(_ amount: Decimal, _ kind: EntryKind, _ date: Date,
+                   _ savedPlaceID: UUID?) -> LedgerEntry {
+            LedgerEntry(id: UUID(), kind: kind, amount: amount, title: "Purchase",
+                        category: "Other", date: date, note: "",
+                        location: LedgerLocation(placeID: savedPlaceID, name: "Shop",
+                                                 latitude: 7, longitude: 80))
+        }
+        let first = entry(125, .expense, arrival, placeID)
+        let latest = entry(75, .expense, departure, placeID)
+        let unrelated = [
+            entry(900, .income, arrival.addingTimeInterval(30), placeID),
+            entry(800, .expense, arrival.addingTimeInterval(30), otherPlaceID),
+            entry(700, .expense, arrival.addingTimeInterval(-1), placeID),
+            entry(600, .expense, departure.addingTimeInterval(1), placeID)
+        ]
+        #expect(PlaceVisitPolicy.spendingSummary(for: visit, entries: unrelated) == nil)
+        let summary = try #require(PlaceVisitPolicy.spendingSummary(
+            for: visit, entries: unrelated + [first, latest]))
+        #expect(summary.count == 2)
+        #expect(summary.total == 200)
+        #expect(summary.latestEntryID == latest.id)
+        #expect(PlaceVisitPolicy.spendingSummary(
+            for: PlaceVisit(id: visit.id, placeID: placeID, placeName: "Shop",
+                            enteredAt: arrival), entries: [first]) == nil)
+        #expect(PlaceVisitPolicy.spendingSummary(
+            for: PlaceVisit(id: visit.id, placeID: placeID, placeName: "Shop",
+                            enteredAt: arrival, exitedAt: departure, isAbandoned: true),
+            entries: [first]) == nil)
+    }
+
     @Test func reconciliationDistinguishesInsideOutsideAndAbandoned() {
         let now = Date()
         let place = LedgerPlace(id: UUID(), name: "Shop", latitude: 7.0, longitude: 80.0)

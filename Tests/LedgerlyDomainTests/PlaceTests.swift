@@ -5,6 +5,28 @@ import Testing
 
 @MainActor
 struct PlaceTests {
+    @Test func placeDetailsMatchMapTotalsWithoutMovingHistoricalExpenses() throws {
+        let place = LedgerPlace(id: UUID(), name: "Shop", latitude: 6.92, longitude: 79.86)
+        let sameCoordinate = LedgerPlace(id: UUID(), name: "Nearby shop", latitude: 6.92, longitude: 79.86)
+        func entry(_ amount: Decimal, _ location: LedgerLocation, kind: EntryKind = .expense) -> LedgerEntry {
+            .init(id: UUID(), kind: kind, amount: amount, title: "", category: "Other",
+                  date: Date(timeIntervalSince1970: 1_000_000), note: "", location: location)
+        }
+        let history = [entry(100, place.location), entry(250, place.location),
+                       entry(900, place.location, kind: .income), entry(50, sameCoordinate.location)]
+        let details = PlaceCalculations.expenses(at: place, in: history)
+        let mapPoint = try #require(PlaceCalculations.mapPoints(places: [place, sameCoordinate], entries: history)
+            .first { $0.id == place.id.uuidString })
+        #expect(details.count == mapPoint.count)
+        #expect(details.reduce(Decimal.zero) { $0 + $1.amount } == mapPoint.amount)
+        #expect(mapPoint.amount == 350)
+        let moved = LedgerPlace(id: place.id, name: "Moved shop", latitude: 7.0, longitude: 80.0)
+        #expect(PlaceCalculations.expenses(at: moved, in: history).isEmpty)
+        var renamed = place
+        renamed.name = "New shop name"
+        #expect(PlaceCalculations.expenses(at: renamed, in: history).count == 2)
+    }
+
     @Test func savedPlaceAndAttachedExpensePersistAndSyncSnapshot() throws {
         let source = CoreDataLedgerRepository(inMemory: true)
         let place = LedgerPlace(id: UUID(), name: "Shop", latitude: 6.9271, longitude: 79.8612)
@@ -35,6 +57,58 @@ struct PlaceTests {
         #expect(points.count == 2)
         #expect(points.first { $0.amount == 100 }?.latitude == 6.92)
         #expect(points.first { $0.id == moved.id.uuidString }?.amount == 0)
+        #expect(PlaceSpendingPattern.analyze(entries: [expense], place: moved).recordedCount == 0)
+    }
+
+    @Test func placePatternUsesRecentExpensesAndResistsOutliers() {
+        let place = LedgerPlace(id: UUID(), name: "Keells", latitude: 6.92, longitude: 79.86)
+        let otherPlace = LedgerPlace(id: UUID(), name: "Other", latitude: 6.93, longitude: 79.87)
+        let groceries = UUID()
+        let dining = UUID()
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        func entry(_ amount: Decimal, _ categoryID: UUID, _ daysAgo: Double,
+                   place recordedPlace: LedgerPlace? = nil, kind: EntryKind = .expense) -> LedgerEntry {
+            LedgerEntry(id: UUID(), kind: kind, amount: amount, title: "Purchase",
+                        category: "Category", date: now.addingTimeInterval(-daysAgo * 86_400),
+                        note: "", categoryID: categoryID, location: (recordedPlace ?? place).location)
+        }
+        let history = [entry(100, groceries, 1), entry(200, groceries, 2),
+                       entry(300, groceries, 3), entry(400, groceries, 4),
+                       entry(5_000, dining, 5), entry(900, dining, 2, place: otherPlace),
+                       entry(700, groceries, 2, kind: .income),
+                       entry(800, dining, -1)]
+        let pattern = PlaceSpendingPattern.analyze(entries: history, place: place,
+            activeCategoryIDs: [groceries, dining], asOf: now)
+        #expect(pattern.recordedCount == 5)
+        #expect(pattern.typicalAmount == 300)
+        #expect(pattern.categoryID == groceries)
+        #expect(pattern.categoryExampleCount == 4)
+        let forgotten = PlaceSpendingPattern.analyze(entries: history, place: place,
+            activeCategoryIDs: [groceries, dining],
+            excludedCategoryEntryIDs: Set(history.prefix(4).map(\.id)), asOf: now)
+        #expect(forgotten.typicalAmount == 300)
+        #expect(forgotten.categoryID == nil)
+    }
+
+    @Test func placePatternAbstainsWithTooLittleOrMixedHistory() {
+        let place = LedgerPlace(id: UUID(), name: "Cafe", latitude: 6.92, longitude: 79.86)
+        let food = UUID()
+        let transport = UUID()
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let first = LedgerEntry(id: UUID(), kind: .expense, amount: 200, title: "Lunch",
+                                category: "Food", date: now, note: "", categoryID: food,
+                                location: place.location)
+        let second = LedgerEntry(id: UUID(), kind: .expense, amount: 250, title: "Ride",
+                                 category: "Transport", date: now, note: "",
+                                 categoryID: transport, location: place.location)
+        let one = PlaceSpendingPattern.analyze(entries: [first], place: place,
+            activeCategoryIDs: [food, transport], asOf: now)
+        #expect(one.categoryID == nil)
+        #expect(one.typicalAmount == nil)
+        let mixed = PlaceSpendingPattern.analyze(entries: [first, second], place: place,
+            activeCategoryIDs: [food, transport], asOf: now)
+        #expect(mixed.categoryID == nil)
+        #expect(mixed.typicalAmount == nil)
     }
 
     @Test func incomeCanKeepAnUnsavedCurrentLocation() throws {
@@ -64,10 +138,15 @@ struct PlaceTests {
             }
         }
         let oldModel = CoreDataModel.make()
-        oldModel.entities = oldModel.entities.filter { $0.name != "SavedPlaceRecord" }
+        oldModel.entities = oldModel.entities.filter {
+            $0.name != "SavedPlaceRecord" && $0.name != "LifeEventRecord" &&
+                $0.name != "FriendRecord" && $0.name != "SplitBillRecord" &&
+                $0.name != "SplitShareRecord"
+        }
         let transaction = try #require(oldModel.entitiesByName["TransactionRecord"])
         transaction.properties = transaction.properties.filter {
-            !["placeID", "locationName", "locationLatitude", "locationLongitude"].contains($0.name)
+            !["placeID", "locationName", "locationLatitude", "locationLongitude",
+              "eventID", "budgetOverrideReason"].contains($0.name)
         }
         let oldStore = NSPersistentContainer(name: "Ledgerly", managedObjectModel: oldModel)
         oldStore.persistentStoreDescriptions = [NSPersistentStoreDescription(url: url)]
@@ -97,5 +176,8 @@ struct PlaceTests {
         let budgets = try newStore.viewContext.fetch(NSFetchRequest<BudgetRecord>(entityName: "BudgetRecord"))
         #expect(budgets.first?.amount == 50)
         #expect(newStore.managedObjectModel.entitiesByName["SavedPlaceRecord"] != nil)
+        #expect(newStore.managedObjectModel.entitiesByName["LifeEventRecord"] != nil)
+        #expect(newStore.managedObjectModel.entitiesByName["FriendRecord"] != nil)
+        #expect(newStore.managedObjectModel.entitiesByName["SplitBillRecord"] != nil)
     }
 }

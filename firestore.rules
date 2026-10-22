@@ -1,12 +1,31 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function owns(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+    function deletionStarted(userId) {
+      // Inspect the final batch state so starting deletion cannot be combined with uploads.
+      return existsAfter(/databases/$(database)/documents/users/$(userId)) &&
+        getAfter(/databases/$(database)/documents/users/$(userId)).data.keys().hasAny(['deletionRequestedAt']);
+    }
+    match /users/{userId} {
+      allow get: if owns(userId);
+      allow create: if owns(userId) &&
+        request.auth.token.auth_time > request.time.toMillis() / 1000 - 300 &&
+        request.resource.data.keys().hasOnly(['deletionRequestedAt']) &&
+        request.resource.data.deletionRequestedAt == request.time;
+      // A minimal tombstone blocks delayed writes, including from older app versions.
+      allow update, delete: if false;
+    }
     match /users/{userId}/transactions/{transactionId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, delete: if owns(userId);
+      allow create, update: if owns(userId) && !deletionStarted(userId);
     }
 
     match /users/{userId}/budgets/{monthId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, delete: if owns(userId);
+      allow create, update: if owns(userId) && !deletionStarted(userId);
     }
   }
 }

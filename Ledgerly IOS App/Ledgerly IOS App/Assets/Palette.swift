@@ -18,4 +18,18 @@ enum Palette {
     static let card = Color(uiColor: .secondarySystemGroupedBackground)
     static let mint = Color(red: 0.12, green: 0.62, blue: 0.48)
     static let coral = Color(red: 0.91, green: 0.29, blue: 0.41)
+
+    // Dashboard text uses opaque adaptive colours rather than a navigation
+    // link's tinted secondary style, which can become too dark on dark cards.
+    static let dashboardAccent = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 1, green: 0.57, blue: 0.68, alpha: 1)
+            : UIColor(red: 0.64, green: 0.12, blue: 0.28, alpha: 1)
+    })
+    static let dashboardMint = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.32, green: 0.87, blue: 0.71, alpha: 1)
+            : UIColor(red: 0.04, green: 0.40, blue: 0.30, alpha: 1)
+    })
+    static let dashboardSecondary = Color(uiColor: .secondaryLabel)
 }

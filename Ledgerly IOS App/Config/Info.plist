@@ -2,20 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleDisplayName</key>
-	<string>Ledgerly</string>
-	<key>CFBundleName</key>
-	<string>Ledgerly</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Scan a receipt so you can review its amount, merchant, and date before recording an expense.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Unlock Ledgerly to keep your transactions and budgets private.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Use your current location to place a pin on the map when you choose to save a place.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>When you enable arrival reminders for saved places, Ledgerly uses location in the background to remind you to record an expense. Your location is not proof of a purchase.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>Ledgerly shopping trip</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ledgerly</string>
+			</array>
+		</dict>
 		<dict>
 			<key>CFBundleURLName</key>
 			<string>Google Sign-In</string>
