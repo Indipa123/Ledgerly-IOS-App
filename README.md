@@ -2,6 +2,128 @@
 
 Ledgerly is a personal finance app for iPhone and iPad running iOS or iPadOS 18.6 or later, made for Sri Lankan students and young professionals. It helps you record money coming in and going out, follow a monthly spending plan, and understand where your money goes. Amounts are shown in Sri Lankan rupees.
 
+## Build and run
+
+### Requirements
+
+- A Mac with Xcode. The current project has been built with **Xcode 27.1**; the app and widget support **iOS/iPadOS 18.6 or later**.
+- An installed iOS Simulator, or a compatible physical iPhone/iPad with signing configured.
+- Internet access for the first Swift Package Manager dependency resolution and for account sign-in/cloud sync. The Xcode project pins Firebase iOS SDK 12.19.2 and Google Sign-In 10.0.0; CocoaPods is not required.
+- A Firebase iOS client configuration for account features. You can use the local guest ledger without it.
+
+### Xcode setup
+
+1. Open [Ledgerly IOS App.xcodeproj](<Ledgerly IOS App/Ledgerly IOS App.xcodeproj>) and allow Xcode to resolve its packages.
+2. Configure Firebase as described below if you need sign-in and cloud sync.
+3. For a physical device, select your development team under **Signing & Capabilities** for both **Ledgerly IOS App** and **LedgerlyShoppingWidget**. Configure their bundle identifiers and shared App Group together.
+4. Select the **Ledgerly IOS App** scheme and an available Simulator or connected, unlocked device, then choose **Product → Run**.
+
+The main app target builds and embeds the widget extension automatically. There is no separate widget installation step. After opening Ledgerly once, add its Monthly budget widget from the Home Screen widget picker. App lock intentionally hides amounts in the widget.
+
+To build for Simulator from the repository root:
+
+```sh
+xcodebuild \
+  -project "Ledgerly IOS App/Ledgerly IOS App.xcodeproj" \
+  -scheme "Ledgerly IOS App" \
+  -configuration Debug \
+  -destination "generic/platform=iOS Simulator" \
+  build
+```
+
+When dependencies are already cached, add `-disableAutomaticPackageResolution -skipPackageUpdates` to avoid package update checks. Keep the checked-in `Package.resolved` file for reproducible dependency versions.
+
+### Firebase configuration
+
+1. Register an iOS app in the intended Firebase project using the main app's bundle identifier. The current identifier is `com.indipa.Ledgerly-IOS-App`.
+2. Download its `GoogleService-Info.plist` and place it at `Ledgerly IOS App/Ledgerly IOS App/App/GoogleService-Info.plist`. Ensure it is included in the **main app** bundle, not the widget. This local configuration file is ignored by Git.
+3. Enable **Google** and **Email/Password** in Firebase Authentication, and configure Cloud Firestore for account sync.
+4. In [Config/Info.plist](<Ledgerly IOS App/Config/Info.plist>), set the Google Sign-In URL scheme to the configuration file's `REVERSED_CLIENT_ID`. Preserve the separate `ledgerly` URL scheme used for app navigation.
+5. Use the repository's [firestore.rules](firestore.rules) for the intended database and verify the rules before publishing changes. The separate [firebase.test.json](firebase.test.json) is for local emulator tests.
+
+Changing the main bundle identifier requires a matching Firebase iOS registration and configuration. Without the plist, Ledgerly skips Firebase initialization: guest features remain available, while account sign-in and cloud sync are unavailable. Use the Firebase iOS client configuration; do not bundle service-account credentials.
+
+### Signing and widget sharing
+
+The app and widget share budget snapshots through an App Group. If you change the signing team or identifiers, use an App Group your team can provision and update all three locations to the **same** value:
+
+- [Main app entitlements](<Ledgerly IOS App/Config/Ledgerly.entitlements>).
+- [Widget entitlements](<Ledgerly IOS App/Ledgerly Shopping Widget/LedgerlyShoppingWidget.entitlements>).
+- `BudgetWidgetStorage.groupID` in [BudgetWidgetSnapshot.swift](<Ledgerly IOS App/Ledgerly IOS App/Models/BudgetWidgetSnapshot.swift>).
+
+The current group is `group.com.indipa.Ledgerly-IOS-App.budget34HL9WPR6H`. Keep the widget bundle identifier prefixed by the main app's bundle identifier. Removing the App Group entitlement prevents the widget from reading the app's saved snapshot.
+
+## Project structure
+
+```text
+Ledgerly IOS App/
+├── Ledgerly IOS App.xcodeproj/     Xcode project and app/widget schemes
+├── Config/                        App Info.plist and entitlements
+├── Ledgerly IOS App/
+│   ├── App/                       Entry point and main navigation
+│   ├── Models/                    Domain types, calculations and policies
+│   ├── ViewModels/                Observable workspace state
+│   ├── Services/                  Persistence, sync and platform integrations
+│   ├── Views/                     SwiftUI screens and shared Components/
+│   └── Assets/                    Images, sounds and bundled model resources
+└── Ledgerly Shopping Widget/      WidgetKit and Live Activity extension
+Tests/LedgerlyDomainTests/          Swift Testing suites
+Tools/                            Model, evaluation and asset utilities
+└── FirestoreRules/                Local Firestore security-rule tests
+Package.swift                     Mac-hosted domain library and test target
+firestore.rules                   Cloud Firestore access rules
+firebase.test.json                Local emulator configuration
+```
+
+SwiftUI screens use `LedgerStore` to coordinate workspace state. Persistence is separated behind `LedgerRepository`, with Core Data providing the local store. Services handle authentication, cloud sync, location monitoring, receipt recognition and personal model training. Domain calculations and policies are shared with the root Swift package so they can be tested independently of the app UI and live backend.
+
+iPhone uses four main tabs. Wider iPad layouts provide sidebar navigation and, where space permits, transaction/place lists beside their details. Smaller windows and accessibility text sizes use full-width navigation. Bundled assets and models are included; running the generation utilities in `Tools` is not required for a normal app build.
+
+## Tests and verification
+
+### Swift Testing
+
+Run the domain suite from the repository root:
+
+```sh
+swift test --disable-automatic-resolution
+```
+
+The root Swift package has no external package dependencies. To run it in Xcode, open the root `Package.swift` and select its package test scheme. The main iOS app scheme does not currently contain an Xcode test target.
+
+The latest recorded run on **23 October 2026** reported **290 tests across 55 suites: 288 passed, two optional benchmarks skipped, and no failures**. Both the device and Simulator app builds succeeded. These checks cover domain behavior and build compatibility; they do not establish real-device notification delivery or complete UI/accessibility coverage.
+
+Optional synthetic performance checks:
+
+```sh
+LEDGERLY_RUN_BENCHMARKS=1 swift test --filter LedgerPerformanceBenchmarks
+LEDGERLY_RUN_SQLITE_BENCHMARKS=1 swift test --filter SQLitePerformanceBenchmarks
+```
+
+### Firestore security rules
+
+These tests are separate from the Swift suite. They require **Node.js 24.12 or later** and **JDK 21 or later**. From the repository root:
+
+```sh
+cd Tools/FirestoreRules
+npm ci
+npm test
+```
+
+The test script starts a local Firestore emulator using the demo project `demo-ledgerly-rules`; it does not deploy rules to a live project. The first run needs internet access to install dependencies and download the emulator. Tests check account isolation, writes, attachments and account-deletion protections.
+
+### Physical-device checks
+
+Before submission or release, install the latest build and verify:
+
+- **Arrival/departure reminders:** allow Always location access and notifications, keep Background App Refresh enabled, enable monitoring for the saved place, and check departure, mute and quiet-hour settings. Cross the saved radius on a real route with the app in the background. The notification sound test checks delivery and sound, not geofencing. iOS controls location-event timing; immediate delivery at the boundary is not guaranteed.
+- **App lock:** cold launch, successful authentication, cancellation, backgrounding and return to Home without a blank transition or exposed private content.
+- **Reports and receipts:** scan a real receipt, review its fields, and save/share both CSV and PDF reports on the phone.
+- **Account sync:** sign-in, offline edits, reconnecting, and syncing between signed-in devices using the intended Firebase configuration.
+- **Layouts and accessibility:** iPhone and iPad, light/dark appearance, larger text, VoiceOver and Reduce Motion.
+
+Real-device arrival/departure delivery remains a manual verification step for the latest background-reminder changes. A successful build or policy test alone does not confirm that field behavior.
+
 ## What you can do
 
 - Record income and expenses with an amount and category. A merchant or source description, payment method, note, and location are optional. You can attach a saved place or capture your current location while entering either type of transaction.
@@ -9,7 +131,7 @@ Ledgerly is a personal finance app for iPhone and iPad running iOS or iPadOS 18.
 - When a described transaction has no reliable match, Ledgerly can offer up to three ranked category possibilities from the on-device model. Tap one or use the category picker; none is selected automatically. Only active categories for the chosen income/expense type appear. These are uncertain choices, without confidence percentages. The options shown at first save are recorded in transaction details on this device; older entries keep unavailable history absent.
 - Search learned descriptions in Profile & settings → Learned categories. Descriptions saved under different categories appear first and can be filtered for review. Open one to inspect its transactions, then edit an individual category or exclude an example from future suggestions. Different categories may be intentional; nothing is changed automatically. Forget one description or all learned examples without deleting transactions. Optional suggestion checks are available under Advanced.
 - Open Learned categories → Excluded examples to reverse a learning exclusion. Search descriptions or categories, filter income/expenses, and choose Use for suggestions on one transaction or restore the visible results after confirmation. Saved-choice matching updates immediately, while personal models follow your retraining settings. Restoring changes this account's learning preferences on this device and keeps financial records intact. Previously cleared models and training history stay cleared.
-- Open Learned categories → Personalise suggestions to train a personal Core ML model on this device. Income and expenses train separately, each needing at least 15 described transactions and enough older examples in two categories. Advanced → Learning results and settings contains optional training history, evaluation results and confidence controls. A candidate must pass the evaluation gate before replacing a valid model. You can cancel training or clear personal models and their history while keeping your transactions.
+- Open Learned categories → Personalise suggestions to train a personal Core ML model on this device. Income and expenses train separately, each needing at least 15 described transactions and enough older examples in two categories. Advanced → Advanced learning details keeps training history, evaluation results and confidence controls behind Show technical details, which starts off. A candidate must pass the evaluation gate before replacing a valid model. You can cancel training or clear personal models and their history while keeping your transactions.
 - New personal models give 2× training weight to tracked local category changes and saved choices that differed from a displayed suggestion. Feedback becomes available when the correction was made; only the earlier training slice receives extra rows. Calibration, final-test and baseline counts remain unique transactions. Suggestions from new models also need two distinct similar training transactions. Personal models and evaluation reports show the correction counts and weighted row totals after retraining. Cloud-only changes and marking reviewed do not qualify for extra weight; this feature does not change your financial values or guarantee better predictions.
 - Choose View category results on a model or recent training attempt to see each category's training and test counts, precision, recall, how often Ledgerly asked instead, and categories it was confused with. Detailed results are recorded by new training attempts; older reports remain unchanged. A category with no test examples shows no recall percentage, and a category with no suggestions shows no precision percentage.
 - From a category evaluation, choose Preview JSON report to review its saved aggregate results, then choose Save to Files or Share. Results include test counts, precision/coverage, baselines, correction weighting, category breakdowns and score reliability when recorded. Category names are off by default, and category IDs are replaced with numbers valid only within that report. You can include current category names explicitly. Transaction descriptions, amounts, notes, locations, account/entry IDs, training examples and model files are excluded. Older reports keep unavailable details absent rather than inventing results.
@@ -62,7 +184,7 @@ Ledgerly is a personal finance app for iPhone and iPad running iOS or iPadOS 18.
 - Review sync status before signing out. If changes are waiting or sync is unconfirmed, keep the account signed in and retry, or confirm that you want to sign out anyway. Cached account data remains on this device and becomes available when you sign back in to the same account.
 - Delete your Ledgerly account from Profile & settings → Account security → Delete account. Verify with your password or the same Google account, then confirm permanent removal of cloud records and this device's account data. Interrupted cleanup can be retried after verification.
 
-The app opens with a short welcome screen followed by optional first-income and monthly-budget setup. Existing income and budgets are recognised, and signed-in setup waits for confirmed cloud data. You can skip either step and revisit Getting started in Profile & settings. Opening or skipping setup saves no financial data; each editor asks you to save explicitly. The app uses four main areas: **Home**, **Transactions**, **Places**, and **Insights**.
+New users see three swipeable introduction pages, then choose account access or continue as a guest, followed by optional first-income and monthly-budget setup. Existing income and budgets are recognised, and signed-in setup waits for confirmed cloud data. You can skip either setup step and revisit Getting started in Profile & settings. Opening or skipping setup saves no financial data; each editor asks you to save explicitly. The app uses four main areas: **Home**, **Transactions**, **Places**, and **Insights**.
 
 ## Privacy
 

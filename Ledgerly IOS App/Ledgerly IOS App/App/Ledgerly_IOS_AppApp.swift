@@ -13,6 +13,7 @@ import UIKit
 import UserNotifications
 
 final class LedgerlyAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    @MainActor
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -33,7 +34,9 @@ final class LedgerlyAppDelegate: NSObject, UIApplicationDelegate, UNUserNotifica
         if Bundle.main.url(forResource: "GoogleService-Info", withExtension: "plist") != nil {
             FirebaseApp.configure()
         }
-        Task { @MainActor in PlaceArrivalMonitor.shared.bootstrapAfterLaunch() }
+        // A location wake can deliver a boundary event immediately after launch.
+        // Restore its account and visits before returning to the main run loop.
+        PlaceArrivalMonitor.shared.bootstrapAfterLaunch()
         return true
     }
 

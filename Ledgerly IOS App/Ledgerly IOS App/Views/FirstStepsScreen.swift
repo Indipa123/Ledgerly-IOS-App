@@ -7,6 +7,7 @@ struct FirstStepsScreen: View {
     @ObservedObject var auth: AuthSession
     var finish: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var editor: Step?
 
     private enum Step: String, Identifiable {
@@ -30,6 +31,11 @@ struct FirstStepsScreen: View {
                     Text("Start with your money").font(.title2.bold())
                     Text("Two optional steps to make your dashboard useful from day one.")
                         .foregroundStyle(.secondary)
+                    ProgressView(value: Double((hasIncome ? 1 : 0) + (hasBudget ? 1 : 0)), total: 2)
+                        .tint(Palette.cranberry)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25),
+                                   value: (hasIncome ? 1 : 0) + (hasBudget ? 1 : 0))
+                        .accessibilityLabel("Optional setup progress")
                 }.padding(.vertical, 12)
             }
             Section {

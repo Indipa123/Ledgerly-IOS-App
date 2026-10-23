@@ -1,5 +1,4 @@
 import SwiftUI
-import GoogleSignInSwift
 import FirebaseAuth
 
 struct SettingsScreen: View {
@@ -34,8 +33,7 @@ struct SettingsScreen: View {
                         AccountProfileHeader(accountID: nil, name: "Welcome to Ledgerly",
                                              email: "Keep your money organised, wherever you go.",
                                              photoURL: nil, provider: "Guest · saved on this device")
-                        GoogleSignInButton(action: { auth.signInWithGoogle() })
-                            .frame(height: 50)
+                        GoogleAccountButton { auth.signInWithGoogle() }
                         Button("Continue with email") { showingEmailAuth = true }
                             .font(.body.weight(.semibold)).frame(minHeight: 44)
                     }

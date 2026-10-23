@@ -95,6 +95,7 @@ struct PlacePromptSettingsScreen: View {
             Section {
                 DisclosureGroup("Help with place alerts") {
                     Text("Allow Always location, notifications and Sounds in device Settings. Keep Background App Refresh on.")
+                    Text("You do not need to open Ledgerly for an arrival or departure alert. iOS can wake it in the background for a saved boundary crossing, including after it has been closed. Delivery timing is controlled by iOS.")
                     Text("Arrival and departure alerts depend on crossing the place’s radius and may be delayed. Estimated departures found after reopening do not send alerts.")
                     Text("Muted places and quiet hours pause both alerts. Visit history and automatic shopping trips continue; payment reminders have their own settings.")
                     Text("Recording an expense or choosing Resume alerts resets automatic muting. Turning it off keeps any places you muted yourself.")

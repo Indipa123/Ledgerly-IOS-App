@@ -54,7 +54,8 @@ final class PlaceArrivalMonitor: NSObject, ObservableObject, CLLocationManagerDe
             let savedEntries = try repository.fetchEntries()
             configure(places: savedPlaces, entries: savedEntries,
                       owner: rememberedOwner == "guest" ? nil : rememberedOwner)
-            reconcileOpenVisits()
+            // Let the boundary event that woke the app arrive first. A fresh
+            // location request here can mark its visit estimated before didExitRegion.
         } catch {
             self.error = "Place reminders could not be restored. Open Places and check monitoring."
         }
@@ -68,8 +69,12 @@ final class PlaceArrivalMonitor: NSObject, ObservableObject, CLLocationManagerDe
         let nextOwner = owner ?? "guest"
         let ownerChanged = nextOwner != self.owner || !loadedOwner
         if ownerChanged {
-            if loadedOwner { cancelPendingPlaceNotifications() }
-            stopLedgerlyRegions()
+            if loadedOwner {
+                cancelPendingPlaceNotifications()
+                stopLedgerlyRegions()
+            }
+            // On a cold launch, iOS still owns the registered regions. Keep
+            // valid regions so pending entry/exit callbacks are not discarded.
             self.owner = nextOwner
             defaults.set(nextOwner, forKey: "ledgerly.monitor.lastOwner")
             loadedOwner = true
@@ -553,6 +558,9 @@ final class PlaceArrivalMonitor: NSObject, ObservableObject, CLLocationManagerDe
     }
 
     private func reconcile() {
+        // Authorisation callbacks can precede loading the saved account. An
+        // empty, not-yet-loaded place list must not remove registered geofences.
+        guard loadedOwner else { return }
         updatePermissionMessage()
         let active = manager.authorizationStatus == .authorizedAlways ? allocatedPlaces : []
         let desiredIDs = Set(active.map { regionID(for: $0.id) })
@@ -797,9 +805,18 @@ final class PlaceArrivalMonitor: NSObject, ObservableObject, CLLocationManagerDe
 
     private func closeVisit(for id: UUID, at date: Date, reconciled: Bool = false,
                             abandoned: Bool = false) {
-        guard let index = visits.firstIndex(where: { $0.placeID == id && $0.isOpen }) else { return }
-        visits[index] = PlaceVisitPolicy.closed(visits[index], at: date,
-                                                reconciled: reconciled, abandoned: abandoned)
+        let index: Int
+        if !reconciled && !abandoned {
+            guard let match = visits.firstIndex(where: { $0.placeID == id }),
+                  let confirmed = PlaceVisitPolicy.confirmedDeparture(visits[match], at: date) else { return }
+            index = match
+            visits[index] = confirmed
+        } else {
+            guard let match = visits.firstIndex(where: { $0.placeID == id && $0.isOpen }) else { return }
+            index = match
+            visits[index] = PlaceVisitPolicy.closed(visits[index], at: date,
+                                                    reconciled: reconciled, abandoned: abandoned)
+        }
         let visit = visits[index]
         persistVisits()
         if arrivalPlace?.id == id { arrivalPlace = nil }

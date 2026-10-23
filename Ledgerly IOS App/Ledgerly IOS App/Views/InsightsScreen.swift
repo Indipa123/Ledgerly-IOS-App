@@ -20,6 +20,17 @@ struct InsightsScreen: View {
             InsightAmount(name: "Other categories", amount: categories.dropFirst(5).reduce(0) { $0 + $1.amount })
         ]
     }
+    private var categoryTotal: Decimal { categories.reduce(0) { $0 + $1.amount } }
+    // Chart colours identify slices rather than category icon families, which
+    // intentionally reuse colours elsewhere (for example groceries/transport).
+    private let categoryChartColors: [Color] = [
+        Palette.cranberry,
+        Color(red: 0.91, green: 0.63, blue: 0.23),
+        Palette.mint,
+        Color(red: 0.34, green: 0.55, blue: 0.91),
+        Color(red: 0.64, green: 0.46, blue: 0.83),
+        Color(red: 0.27, green: 0.67, blue: 0.73)
+    ]
 
     var body: some View {
         ScrollView {
@@ -54,6 +65,7 @@ struct InsightsScreen: View {
         }
         .background(Palette.cream.ignoresSafeArea())
         .navigationTitle("Insights")
+        .toolbar(.visible, for: .navigationBar)
         .toolbar {
             NavigationLink {
                 ReportScreen(store: store)
@@ -77,25 +89,67 @@ struct InsightsScreen: View {
             if categories.isEmpty {
                 empty("No spending this month", symbol: "chart.pie")
             } else {
-                Chart(donut) { item in
-                    SectorMark(angle: .value("Spending", item.chartAmount),
-                               innerRadius: .ratio(0.58), angularInset: 2)
-                        .foregroundStyle(LedgerIconDescriptor.category(item.name, kind: .expense).color)
-                }
-                .frame(height: 245)
-                .accessibilityHidden(true)
-                ForEach(categories) { item in
-                    NavigationLink {
-                        CategoryInsightDetail(store: store, categoryName: item.name)
-                    } label: {
-                        drilldownRow(item.name, amount: item.amount,
-                                     icon: .category(item.name, kind: .expense))
+                if dynamicTypeSize.isAccessibilitySize {
+                    moneyRow("Total spent", amount: categoryTotal,
+                             icon: .init(symbol: "sum", color: Palette.cranberry))
+                } else {
+                    Chart(Array(donut.enumerated()), id: \.offset) { index, item in
+                        SectorMark(angle: .value("Spending", item.chartAmount),
+                                   innerRadius: .ratio(0.68), outerRadius: .ratio(0.96),
+                                   angularInset: donut.count > 1 ? 1 : 0)
+                            .foregroundStyle(categoryChartColors[index % categoryChartColors.count])
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Shows this month's expenses in \(item.name)")
+                    .chartLegend(.hidden)
+                    .chartBackground { proxy in
+                        GeometryReader { geometry in
+                            if let plotFrame = proxy.plotFrame {
+                                let frame = geometry[plotFrame]
+                                VStack(spacing: 5) {
+                                    Text("Total spent")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                    Text(LKR.string(categoryTotal))
+                                        .font(.headline.monospacedDigit())
+                                        .foregroundStyle(Palette.ink)
+                                        .lineLimit(1).minimumScaleFactor(0.65)
+                                }
+                                .frame(width: min(frame.width, frame.height) * 0.60)
+                                .position(x: frame.midX, y: frame.midY)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: 230)
+                    .frame(height: 230)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                    .accessibilityHidden(true)
+                }
+                VStack(spacing: 0) {
+                    ForEach(categories) { item in
+                        NavigationLink {
+                            CategoryInsightDetail(store: store, categoryName: item.name)
+                        } label: {
+                            drilldownRow(item.name, amount: item.amount,
+                                         icon: categoryChartIcon(item.name))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Shows this month's expenses in \(item.name)")
+                        if item.id != categories.last?.id {
+                            Divider().padding(.leading, 44)
+                        }
+                    }
+                }
+                if categories.count > 6 {
+                    Text("Smaller categories share the final chart colour. All amounts are listed above.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
         }
+    }
+
+    private func categoryChartIcon(_ name: String) -> LedgerIconDescriptor {
+        let index = donut.firstIndex(where: { $0.name == name }) ?? (donut.count - 1)
+        return .init(symbol: LedgerIconDescriptor.category(name, kind: .expense).symbol,
+                     color: categoryChartColors[max(0, index) % categoryChartColors.count])
     }
 
     private var monthlySection: some View {
@@ -220,26 +274,37 @@ struct InsightsScreen: View {
 
     private func moneyRow(_ title: String, amount: Decimal,
                           icon: LedgerIconDescriptor) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: dynamicTypeSize.isAccessibilitySize ? .top : .center, spacing: 10) {
             LedgerIconTile(icon: icon, size: 34)
                 .accessibilityHidden(true)
-            let layout = dynamicTypeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
-                : AnyLayout(HStackLayout(alignment: .top, spacing: 8))
-            layout {
-                Text(title).font(.subheadline).fixedSize(horizontal: false, vertical: true)
-                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
-                Text(LKR.string(amount))
-                    .font(.subheadline.bold().monospacedDigit())
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                    .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.75)
-                    .layoutPriority(1)
+            if dynamicTypeSize.isAccessibilitySize {
+                stackedMoneyLabels(title, amount: amount)
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(title).font(.subheadline).fixedSize()
+                        Spacer(minLength: 0)
+                        Text(LKR.string(amount))
+                            .font(.subheadline.bold().monospacedDigit()).fixedSize()
+                    }
+                    stackedMoneyLabels(title, amount: amount)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .foregroundStyle(Palette.ink)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
         .accessibilityValue(LKR.string(amount))
+    }
+
+    private func stackedMoneyLabels(_ title: String, amount: Decimal) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title).font(.subheadline)
+            Text(LKR.string(amount)).font(.subheadline.bold().monospacedDigit())
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func drilldownRow(_ title: String, amount: Decimal,
@@ -251,7 +316,9 @@ struct InsightsScreen: View {
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
         }
-        .frame(minHeight: 44)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+        .contentShape(Rectangle())
     }
 
     private func empty(_ title: String, symbol: String) -> some View {

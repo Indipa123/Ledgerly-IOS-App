@@ -10,7 +10,10 @@ struct DashboardActionCard<Destination: View, Preview: View>: View {
     @ViewBuilder let preview: () -> Preview
 
     var body: some View {
-        NavigationLink(destination: destination) {
+        NavigationLink {
+            destination()
+                .toolbar(.visible, for: .navigationBar)
+        } label: {
             VStack(alignment: .leading, spacing: 14) {
                 LedgerIconTile(icon: .init(symbol: symbol, color: accent), size: 42)
                     .frame(maxWidth: .infinity, alignment: .leading)

@@ -387,6 +387,8 @@ struct PlaceArrivalControls: View {
                         Text("\(meters) m").tag(meters)
                     }
                 }
+                Text("Distance from the saved pin to its boundary. Enter the circle for arrival; leave it for departure. A larger radius can improve detection but covers more of the surrounding area.")
+                    .font(.footnote).foregroundStyle(.secondary)
                 if monitor.hasReducedAccuracyWarning(for: place) {
                     Text("Precise Location is off. A small radius may miss arrivals.")
                         .font(.footnote).foregroundStyle(.orange)

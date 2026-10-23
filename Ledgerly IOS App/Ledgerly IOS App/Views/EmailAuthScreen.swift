@@ -4,105 +4,236 @@ struct EmailAuthScreen: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var auth: AuthSession
     let onSuccess: () -> Void
-    var allowsRegistration = true
+    var allowsRegistration: Bool
+    var embeddedInNavigation: Bool
+    var continueWithoutAccount: (() -> Void)?
 
-    @State private var mode: Mode = .signIn
+    @State private var mode: Mode
     @State private var email = ""
     @State private var password = ""
     @State private var confirmation = ""
+    @State private var showsPassword = false
     @State private var errorMessage: String?
     @State private var confirmationMessage: String?
     @State private var isSubmitting = false
+    @FocusState private var focus: Field?
 
-    private enum Mode: Int {
-        case signIn, createAccount
+    private enum Mode: Equatable { case signIn, createAccount }
+    private enum Field: Hashable { case email, password, confirmation }
+    private var isWorking: Bool { auth.isBusy || isSubmitting }
+
+    init(auth: AuthSession, onSuccess: @escaping () -> Void,
+         allowsRegistration: Bool = true, startsWithRegistration: Bool = false,
+         embeddedInNavigation: Bool = false, continueWithoutAccount: (() -> Void)? = nil) {
+        self.auth = auth
+        self.onSuccess = onSuccess
+        self.allowsRegistration = allowsRegistration
+        self.embeddedInNavigation = embeddedInNavigation
+        self.continueWithoutAccount = continueWithoutAccount
+        _mode = State(initialValue: startsWithRegistration && allowsRegistration ? .createAccount : .signIn)
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    if allowsRegistration { Picker("Account action", selection: $mode) {
-                        Text("Sign in").tag(Mode.signIn)
-                        Text("Create account").tag(Mode.createAccount)
-                    }
-                    .pickerStyle(.segmented)
-                    .onChange(of: mode) { _, _ in
-                        password = ""
-                        confirmation = ""
-                        errorMessage = nil
-                        confirmationMessage = nil
-                    }
-                    }
-                    TextField("Email", text: $email)
-                        .keyboardType(.emailAddress)
-                        .textContentType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    SecureField("Password", text: $password)
-                        .textContentType(mode == .signIn ? .password : .newPassword)
-                    if mode == .createAccount {
-                        SecureField("Confirm password", text: $confirmation)
-                            .textContentType(.newPassword)
-                    }
-                } footer: {
-                    if mode == .createAccount {
-                        Text("Use at least six characters for your password.")
-                    }
-                }
+        Group {
+            if embeddedInNavigation { accountContent }
+            else { NavigationStack { accountContent } }
+        }
+        .tint(Palette.dashboardAccent)
+        .interactiveDismissDisabled(isWorking)
+    }
 
-                Section {
-                    Button {
-                        Task { await submit() }
-                    } label: {
-                        HStack {
-                            Spacer()
-                            if isSubmitting { ProgressView().padding(.trailing, 6) }
-                            Text(mode == .signIn ? "Sign in" : "Create account")
-                                .font(.headline)
-                            Spacer()
+    private var accountContent: some View {
+        ScrollViewReader { scroll in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(mode == .signIn ? "Welcome back" : "Your money, made clear")
+                            .font(.largeTitle.bold())
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityAddTraits(.isHeader)
+                        Text(mode == .signIn ? "Sign in to continue to your ledger." : "Create your Ledgerly account.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    .id("account.heading")
+
+                    HStack(spacing: 14) {
+                        Image(systemName: "chart.pie.fill")
+                            .font(.title2)
+                            .frame(width: 52, height: 52)
+                            .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 17))
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Keep your ledger with you").font(.headline)
+                            Text("Your spending, budgets and plans, together.")
+                                .font(.subheadline).foregroundStyle(.white.opacity(0.85))
                         }
-                        .frame(minHeight: 44)
                     }
-                    .disabled(auth.isBusy)
+                    .foregroundStyle(.white)
+                    .padding(20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Palette.plum, in: RoundedRectangle(cornerRadius: 24))
 
-                    if mode == .signIn {
-                        Button("Forgot password?") {
-                            Task { await resetPassword() }
+                    VStack(alignment: .leading, spacing: 18) {
+                        Text(mode == .signIn ? "Sign in with email" : "Start with your email")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        AccountField(title: "Email") {
+                            TextField("Email address", text: $email)
+                                .keyboardType(.emailAddress)
+                                .textContentType(.emailAddress)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .focused($focus, equals: .email)
+                                .submitLabel(.next)
+                                .onSubmit { focus = .password }
+                                .accessibilityLabel("Email")
+                                .accessibilityIdentifier("auth.email")
                         }
-                        .disabled(auth.isBusy)
+                        AccountField(title: "Password") {
+                            HStack(spacing: 12) {
+                                Group {
+                                    if showsPassword { TextField("Enter your password", text: $password) }
+                                    else { SecureField("Enter your password", text: $password) }
+                                }
+                                .textContentType(mode == .signIn ? .password : .newPassword)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .focused($focus, equals: .password)
+                                .submitLabel(mode == .createAccount ? .next : .go)
+                                .onSubmit {
+                                    if mode == .createAccount { focus = .confirmation }
+                                    else { Task { await submit() } }
+                                }
+                                .accessibilityLabel("Password")
+                                .accessibilityIdentifier("auth.password")
+                                Button { showsPassword.toggle() } label: {
+                                    Image(systemName: showsPassword ? "eye.slash" : "eye")
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 44, height: 44)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(showsPassword ? "Hide password" : "Show password")
+                            }
+                        }
+                        if mode == .createAccount {
+                            AccountField(title: "Confirm password") {
+                                SecureField("Enter your password again", text: $confirmation)
+                                    .textContentType(.newPassword)
+                                    .focused($focus, equals: .confirmation)
+                                    .submitLabel(.go)
+                                    .onSubmit { Task { await submit() } }
+                                    .accessibilityLabel("Confirm password")
+                            }
+                            Text("Use at least six characters.").font(.footnote).foregroundStyle(.secondary)
+                        } else {
+                            Button("Forgot password?") { focus = nil; Task { await resetPassword() } }
+                                .font(.subheadline.weight(.semibold))
+                                .frame(maxWidth: .infinity, minHeight: 34, alignment: .trailing)
+                        }
                     }
-                }
+                    .disabled(isWorking)
 
-                if let errorMessage {
-                    Section {
-                        Label(errorMessage, systemImage: "exclamationmark.circle.fill")
-                            .foregroundStyle(.red)
+                    if let message = errorMessage ?? auth.error {
+                        Label(message, systemImage: "exclamationmark.circle.fill")
+                            .font(.subheadline).foregroundStyle(Palette.dashboardAccent)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("auth.error")
                     }
-                }
-                if let confirmationMessage {
-                    Section {
+                    if let confirmationMessage {
                         Label(confirmationMessage, systemImage: "envelope.badge")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    VStack(spacing: 14) {
+                        Button {
+                            focus = nil
+                            Task { await submit() }
+                        } label: {
+                            HStack(spacing: 10) {
+                                if isSubmitting { ProgressView().tint(.white) }
+                                Text(mode == .signIn ? "Sign in" : "Create account")
+                            }
+                        }
+                        .buttonStyle(AccountPrimaryButtonStyle())
+                        .disabled(isWorking || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty)
+                        .accessibilityIdentifier("auth.submit")
+                        if allowsRegistration {
+                            GoogleAccountButton {
+                                focus = nil
+                                errorMessage = nil
+                                confirmationMessage = nil
+                                password = ""
+                                confirmation = ""
+                                auth.signInWithGoogle(onSuccess: onSuccess)
+                            }
+                            .disabled(isWorking)
+                        }
+                        if auth.isBusy && !isSubmitting {
+                            ProgressView("Signing in…").font(.subheadline)
+                        }
+                    }
+
+                    VStack(spacing: 12) {
+                        if allowsRegistration {
+                            HStack(spacing: 6) {
+                                Text(mode == .signIn ? "New here?" : "Already have an account?")
+                                    .foregroundStyle(.secondary)
+                                Button(mode == .signIn ? "Create account" : "Sign in") {
+                                    mode = mode == .signIn ? .createAccount : .signIn
+                                }.fontWeight(.semibold)
+                            }
+                            .font(.subheadline)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .disabled(isWorking)
+                        }
+                        if let continueWithoutAccount {
+                            Button("Explore without an account", action: continueWithoutAccount)
+                                .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44)
+                                .disabled(isWorking)
+                        }
+                        if allowsRegistration {
+                            Text("Your first sign-in also saves any entries already on this device to your account.")
+                                .font(.footnote).foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
-                Section {
-                    Text("When you sign in to your first account on this device, Ledgerly uploads your existing local transactions and budgets to it.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+                .padding(.bottom, 28)
+                .frame(maxWidth: 520)
+                .frame(maxWidth: .infinity)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .background(Palette.cream.ignoresSafeArea())
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.visible, for: .navigationBar)
+            .navigationBarBackButtonHidden(isWorking)
+            .toolbar {
+                if !embeddedInNavigation {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }.disabled(isWorking)
+                    }
                 }
             }
-            .navigationTitle("Email account")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
+            .onChange(of: mode) { _, _ in
+                password = ""
+                confirmation = ""
+                showsPassword = false
+                errorMessage = nil
+                confirmationMessage = nil
+                auth.error = nil
+                focus = nil
+                scroll.scrollTo("account.heading", anchor: .top)
             }
         }
-        .tint(Palette.cranberry)
     }
 
     @MainActor
     private func submit() async {
+        guard !isWorking else { return }
         errorMessage = nil
         confirmationMessage = nil
         isSubmitting = true
@@ -125,6 +256,7 @@ struct EmailAuthScreen: View {
 
     @MainActor
     private func resetPassword() async {
+        guard !isWorking else { return }
         errorMessage = nil
         confirmationMessage = nil
         do {

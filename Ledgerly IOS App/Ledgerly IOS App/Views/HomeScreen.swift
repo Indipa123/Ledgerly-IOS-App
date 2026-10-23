@@ -75,13 +75,12 @@ struct HomeScreen: View {
             }
         }
         .background(Palette.cream.ignoresSafeArea())
-        .navigationTitle("Overview")
+        .navigationTitle(horizontalSizeClass == .regular ? "Overview" : "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(homeNavigationBarVisibility, for: .navigationBar)
     }
 
     private var homeNavigationBarVisibility: Visibility {
-        if #available(iOS 26, *) { return .visible }
         return horizontalSizeClass == .regular ? .visible : .hidden
     }
 
@@ -142,7 +141,7 @@ struct HomeScreen: View {
 
     private func planningCards(width: CGFloat) -> some View {
         let twoColumns = !dynamicTypeSize.isAccessibilitySize &&
-            (width >= 520 || (width >= 360 && dynamicTypeSize <= .large))
+            (width >= 520 || (width >= 320 && dynamicTypeSize <= .large))
         let columns = Array(repeating: GridItem(.flexible(), spacing: 14, alignment: .top),
                             count: twoColumns ? 2 : 1)
         return VStack(alignment: .leading, spacing: 14) {
@@ -305,7 +304,10 @@ struct HomeScreen: View {
                 : AnyLayout(HStackLayout(spacing: 8))
             headerLayout {
                 HStack {
-                    NavigationLink { SettingsScreen(store: store, notifications: store.notifications) } label: {
+                    NavigationLink {
+                        SettingsScreen(store: store, notifications: store.notifications)
+                            .toolbar(.visible, for: .navigationBar)
+                    } label: {
                         AccountAvatar(accountID: auth.user?.uid, name: auth.user?.displayName,
                                       photoURL: auth.profilePhotoURL, size: 38)
                             .frame(minWidth: 44, minHeight: 44)
@@ -430,7 +432,10 @@ struct HomeScreen: View {
                 ContentUnavailableView("No transactions yet", systemImage: "tray", description: Text("Add an expense or income to get started."))
             } else {
                 ForEach(store.entries.prefix(4)) { entry in
-                    NavigationLink { EntryDetail(store: store, entry: entry) } label: {
+                    NavigationLink {
+                        EntryDetail(store: store, entry: entry)
+                            .toolbar(.visible, for: .navigationBar)
+                    } label: {
                         EntryRow(entry: entry)
                     }
                     .buttonStyle(.plain)

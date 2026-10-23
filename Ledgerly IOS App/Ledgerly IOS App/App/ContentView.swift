@@ -205,7 +205,7 @@ struct ContentView: View {
             .environmentObject(lock)
             .environmentObject(shoppingTrips)
         }
-        .sheet(isPresented: Binding(get: { !hasSeenWelcome }, set: { if !$0 { hasSeenWelcome = true } })) {
+        .fullScreenCover(isPresented: Binding(get: { !hasSeenWelcome }, set: { if !$0 { hasSeenWelcome = true } })) {
             WelcomeScreen(auth: auth, store: store, finish: { hasSeenWelcome = true })
                 .interactiveDismissDisabled()
         }

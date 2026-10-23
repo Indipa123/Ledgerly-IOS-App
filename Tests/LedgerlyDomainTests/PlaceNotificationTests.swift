@@ -5,6 +5,49 @@ import Testing
 struct PlaceNotificationTests {
     private let arrival = Date(timeIntervalSince1970: 1_000_000)
 
+    @Test func restoredOpenVisitProducesDepartureWithoutOpeningTheWorkspace() throws {
+        let original = PlaceVisit(id: UUID(), placeID: UUID(), placeName: "Shop", enteredAt: arrival)
+        let restored = try JSONDecoder().decode(PlaceVisit.self, from: JSONEncoder().encode(original))
+        let departed = try #require(PlaceVisitPolicy.confirmedDeparture(restored,
+            at: arrival.addingTimeInterval(600)))
+        #expect(!departed.isOpen && !departed.isReconciled)
+        #expect(departed.id == original.id && departed.enteredAt == original.enteredAt)
+        #expect(PlaceDepartureNotice.make(for: departed, entries: [], enabled: true) == .unrecorded)
+        #expect(PlaceDepartureNotice.make(for: departed, entries: [], enabled: false) == nil)
+    }
+
+    @Test func outsideStateBeforeRealExitDoesNotLoseOrRepeatTheDeparture() throws {
+        let open = PlaceVisit(id: UUID(), placeID: UUID(), placeName: "Shop", enteredAt: arrival)
+        let estimate = PlaceVisitPolicy.closed(open, at: arrival.addingTimeInterval(600), reconciled: true)
+        #expect(PlaceDepartureNotice.make(for: estimate, entries: [], enabled: true) == nil)
+        let confirmed = try #require(PlaceVisitPolicy.confirmedDeparture(estimate,
+            at: arrival.addingTimeInterval(605)))
+        #expect(!confirmed.isReconciled && confirmed.exitedAt == estimate.exitedAt)
+        #expect(PlaceDepartureNotice.make(for: confirmed, entries: [], enabled: true) == .unrecorded)
+        #expect(PlaceVisitPolicy.confirmedDeparture(confirmed, at: arrival.addingTimeInterval(606)) == nil)
+
+        let purchase = LedgerEntry(id: UUID(), kind: .expense, amount: 125,
+            title: "Purchase", category: "Other", date: arrival.addingTimeInterval(300), note: "",
+            location: .init(placeID: open.placeID, name: "Shop", latitude: 7, longitude: 80))
+        let afterDeparture = LedgerEntry(id: UUID(), kind: .expense, amount: 900,
+            title: "Later purchase", category: "Other", date: arrival.addingTimeInterval(602), note: "",
+            location: purchase.location)
+        #expect(PlaceDepartureNotice.make(for: confirmed, entries: [purchase, afterDeparture], enabled: true)
+            == .recorded(.init(count: 1, total: 125, latestEntryID: purchase.id)))
+    }
+
+    @Test func oldEstimatesAndAbandonedVisitsCannotGenerateDelayedExitAlerts() throws {
+        let open = PlaceVisit(id: UUID(), placeID: UUID(), placeName: "Shop", enteredAt: arrival)
+        let estimate = PlaceVisitPolicy.closed(open, at: arrival.addingTimeInterval(600), reconciled: true)
+        #expect(PlaceVisitPolicy.confirmedDeparture(estimate, at: arrival.addingTimeInterval(599)) == nil)
+        #expect(PlaceVisitPolicy.confirmedDeparture(estimate, at: arrival.addingTimeInterval(720)) != nil)
+        #expect(PlaceVisitPolicy.confirmedDeparture(estimate, at: arrival.addingTimeInterval(721)) == nil)
+        let abandoned = PlaceVisitPolicy.closed(open, at: arrival.addingTimeInterval(600),
+                                                reconciled: true, abandoned: true)
+        #expect(PlaceVisitPolicy.confirmedDeparture(abandoned, at: arrival.addingTimeInterval(601)) == nil)
+        #expect(PlaceVisitPolicy.confirmedDeparture(open, at: arrival.addingTimeInterval(-1)) == nil)
+    }
+
     @Test func departuresWithoutExpensesStillOfferARecordReminder() throws {
         let visit = PlaceVisit(id: UUID(), placeID: UUID(), placeName: "Shop",
             enteredAt: arrival, exitedAt: arrival.addingTimeInterval(600))

@@ -100,7 +100,15 @@ struct EntryEditor: View {
                 }
                 .pickerStyle(.segmented)
                 TextField("Amount in LKR", text: $amount).keyboardType(.decimalPad)
-                TextField(kind == .expense ? "Merchant or description (optional)" : "Source or description (optional)", text: $title)
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField(kind == .expense ? "Merchant or description (optional)" : "Source or description (optional)", text: $title)
+                    Text(kind == .expense
+                         ? "Add a merchant or description for category suggestions, or choose a category yourself."
+                         : "Add a source or description for category suggestions, or choose a category yourself.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Picker("Category", selection: Binding(
                     get: { categoryID },
                     set: { categoryID = $0; categoryChosenByUser = true })) {

@@ -54,6 +54,19 @@ enum PlaceVisitPolicy {
         return result
     }
 
+    /// An actual exit can follow a fresh outside-state/location response on a
+    /// background relaunch. Confirm that recent estimate once, preserving the
+    /// visit's original spending interval. Old estimates never generate alerts.
+    static func confirmedDeparture(_ visit: PlaceVisit, at date: Date) -> PlaceVisit? {
+        guard !visit.isAbandoned, date >= visit.enteredAt else { return nil }
+        if visit.isOpen { return closed(visit, at: date) }
+        guard visit.isReconciled, let exitedAt = visit.exitedAt,
+              date >= exitedAt, date.timeIntervalSince(exitedAt) <= 120 else { return nil }
+        var result = visit
+        result.isReconciled = false
+        return result
+    }
+
     static func reconciled(_ visit: PlaceVisit, place: LedgerPlace?,
                            latitude: Double, longitude: Double, radius: Double,
                            horizontalAccuracy: Double = 0,
